@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { markOnboardingDone } from '@/utils/onboarding'
 import './onboarding.css'
 
 const C = { ok: '#4aa573', mis: '#f0c443', bad: '#d9534f', unk: '#1f2937', disc: '#ef8d3c' }
@@ -105,7 +106,10 @@ export default function OnboardingPage() {
   const navigate = useNavigate()
   const last = i === steps.length - 1
   const s = steps[i]
-  const finish = () => navigate('/')
+  const finish = () => {
+    markOnboardingDone()
+    navigate('/', { replace: true })
+  }
 
   return (
     <div className="ob">
