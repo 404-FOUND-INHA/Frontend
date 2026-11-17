@@ -108,7 +108,7 @@ export default function OnboardingPage() {
   const s = steps[i]
   const finish = () => {
     markOnboardingDone()
-    navigate('/', { replace: true })
+    navigate('/login', { replace: true })
   }
 
   return (
