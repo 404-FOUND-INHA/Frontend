@@ -1,0 +1,3 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# CodeRabbit 설정: 리뷰를 한국어로 작성한다.
+language: "ko-KR"
