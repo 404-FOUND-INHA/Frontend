@@ -1,0 +1,92 @@
+/* Page(헤더 + 스크롤 본문 + 하단 고정 영역). 색과 높이 토큰은 .app(layouts/mainLayout.css)에서 정의한다.
+   클래스는 모두 pg- 접두어를 써서 기존 화면의 전역 클래스(.card, .info 등)와 충돌하지 않는다. */
+
+/* MainLayout의 main을 채운다. min-height:0이 있어야 본문(.pg-scroll)만 스크롤되고 헤더·하단 탭이 밀려나지 않는다. */
+.pg { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
+
+/* 56px 영역 + 아래 1px 선. 전역 box-sizing 규칙(.app *)보다 우선하도록 선택자를 한 단계 높였다. */
+.pg .pg-header {
+  box-sizing: content-box;
+  position: relative;
+  flex: none;
+  height: 56px;
+  border-bottom: 1px solid var(--app-border);
+  background: #fff;
+}
+
+/* 좌우 슬롯의 유무와 관계없이 제목을 정중앙에 둔다: 양쪽에 같은 폭(64px)을 비워 두고 가운데 정렬한다.
+   전역 h1(56px, 여백, 폰트 변수)은 여기서 모두 덮어쓴다. */
+.pg-title {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 64px;
+  right: 64px;
+  margin: 0;
+  font-family: inherit;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 56px;
+  letter-spacing: 0;
+  text-align: center;
+  color: var(--app-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pg-back {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--app-icon);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.pg-right { position: absolute; top: 0; bottom: 0; right: 20px; display: flex; align-items: center; }
+
+/* 헤더 우측의 정사각 아이콘 버튼. 아직 연결되지 않은 기능은 disabled로 두어 동작하지 않는다. */
+.pg-action {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: var(--app-primary-strong);
+  color: #fff;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.pg-action:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.pg-back:focus-visible,
+.pg-action:focus-visible { outline: 2px solid var(--app-primary); outline-offset: 2px; }
+
+/* 본문만 스크롤한다. 하단 탭은 이 영역 밖(형제)이므로 마지막 콘텐츠가 탭에 가려지지 않는다. */
+.pg-scroll {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 0 16px 16px;
+}
+
+.pg-footer {
+  flex: none;
+  padding: 12px 16px;
+  border-top: 1px solid var(--app-border);
+  background: #fff;
+}
