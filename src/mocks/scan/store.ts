@@ -1,0 +1,236 @@
+import { ApiError, ERROR_CODE } from '@/api/ApiError'
+import type {
+  FieldError,
+  PageResponse,
+  ProcessingStage,
+  ScanRoomResponse,
+  ScanSessionCreateRequest,
+  ScanSessionListParams,
+  ScanSessionResponse,
+  ScanSessionStatus,
+} from '@/types/scan/api'
+import { isValidIsoDate } from '@/utils/calendarDate'
+import { seoulDate, seoulDateTime } from '@/utils/seoulTime'
+import { createSeedData } from './seed'
+import type { MockData, MockSession } from './types'
+
+// 메모리 단일 원본. 목록·상세·자료실 응답은 모두 이 데이터에서 읽을 때 파생한다. 새로고침하면 시드로 초기화된다.
+// Backend ScanSessionService의 규칙을 따르되, 실제 DB·락·검증 메시지까지 재현하지는 않는다.
+//
+// 모든 메서드는 동기 함수다. "중복 검사 → 저장"이 await 없이 한 번에 실행되므로,
+// 데이터 접근 계층(api/scanSessions.ts)에서 요청이 동시에 들어와도 이벤트 루프 안에서 끼어들 수 없다.
+// (Backend의 Advisory Lock에 해당하는 역할. 락 자체를 구현하지는 않는다.)
+
+export const OPEN_STATUSES: readonly ScanSessionStatus[] = ['IN_PROGRESS', 'REVIEW']
+const ALL_STATUSES: readonly ScanSessionStatus[] = ['IN_PROGRESS', 'REVIEW', 'COMPLETED']
+
+const DEFAULT_PAGE_SIZE = 20
+const MAX_PAGE_SIZE = 100
+const MAX_OFFSET = 2_147_483_647 // Java int 최댓값. 넘으면 Backend는 400으로 막는다.
+const MAX_SESSION_NAME_LENGTH = 100
+const MAX_ZONE_LENGTH = 30
+
+// ErrorCode 기본 메시지 (Backend ErrorCode)
+const MESSAGE = {
+  INVALID_INPUT: '잘못된 입력입니다.',
+  SCAN_SESSION_NOT_FOUND: '장서점검 회차를 찾을 수 없습니다.',
+  SCAN_SESSION_ALREADY_OPEN: '해당 자료실에 완료되지 않은 점검 회차가 있습니다.',
+  SCAN_NO_ACTIVE_SHELF: '점검할 수 있는 서가가 없는 자료실입니다.',
+} as const
+
+export interface ScanStore {
+  getRooms(): ScanRoomResponse[]
+  getSessions(params?: ScanSessionListParams): PageResponse<ScanSessionResponse>
+  getSession(id: number): ScanSessionResponse
+  createSession(request: ScanSessionCreateRequest): ScanSessionResponse
+  /** 현재 저장소 내용의 복사본 (테스트·디버깅용) */
+  snapshot(): MockData
+}
+
+export interface ScanStoreOptions {
+  /** 현재 시각(epoch ms). 테스트에서 고정 시계를 주입한다. */
+  now?: () => number
+}
+
+function fail(status: number, code: string, message: string, errors: FieldError[] = []): ApiError {
+  return new ApiError(status, { code, message, errors })
+}
+
+function invalidInput(errors: FieldError[] = []): ApiError {
+  return fail(400, ERROR_CODE.INVALID_INPUT, MESSAGE.INVALID_INPUT, errors)
+}
+
+function processingStageOf(status: ScanSessionStatus): ProcessingStage {
+  return status === 'IN_PROGRESS' ? 'VISION_WAITING' : 'ANALYSIS_DONE'
+}
+
+function validateRequiredText(field: string, value: unknown, maxLength: number): FieldError | null {
+  // Bean Validation @NotBlank @Size. reason 문구는 Spring 기본 문구를 흉내 낸 것이며 계약이 아니다.
+  if (typeof value !== 'string' || value.trim() === '') return { field, reason: 'must not be blank' }
+  if (value.length > maxLength) return { field, reason: `size must be between 0 and ${maxLength}` }
+  return null
+}
+
+export function createScanStore(initial: MockData, options: ScanStoreOptions = {}): ScanStore {
+  const now = options.now ?? Date.now
+  const data = structuredClone(initial)
+  let nextSessionId = data.sessions.reduce((max, s) => Math.max(max, s.id), 0) + 1
+
+  const openZones = () =>
+    new Set(
+      data.sessions
+        .filter((s) => OPEN_STATUSES.includes(s.status) && s.zone !== null)
+        .map((s) => s.zone as string),
+    )
+
+  const activeShelvesOf = (zone: string) =>
+    data.shelves.filter((shelf) => shelf.active && shelf.zone === zone).sort((a, b) => a.id - b.id)
+
+  /** 회차에 등록된 서가 층의 최솟값. 층 정보가 없으면 null (Backend findMinFloorsBySessionIds) */
+  function floorsBySession(sessionIds: number[]): Map<number, number | null> {
+    const wanted = new Set(sessionIds)
+    const shelvesById = new Map(data.shelves.map((shelf) => [shelf.id, shelf]))
+    const floors = new Map<number, number | null>()
+    for (const link of data.sessionShelves) {
+      if (!wanted.has(link.sessionId)) continue
+      const floor = shelvesById.get(link.shelfId)?.floorNo ?? null
+      const current = floors.get(link.sessionId) ?? null
+      floors.set(link.sessionId, floor === null ? current : current === null ? floor : Math.min(current, floor))
+    }
+    return floors
+  }
+
+  function toResponse(session: MockSession, floorNo: number | null): ScanSessionResponse {
+    return {
+      id: session.id,
+      sessionName: session.sessionName,
+      status: session.status,
+      processingStage: processingStageOf(session.status),
+      zone: session.zone,
+      floorNo,
+      plannedStartDate: session.plannedStartDate,
+      startedAt: session.startedAt,
+      finalizedAt: session.finalizedAt,
+      createdAt: session.createdAt,
+    }
+  }
+
+  return {
+    getRooms() {
+      const open = openZones()
+      const byZone = new Map<string, { floorNo: number | null; shelfCount: number }>()
+      for (const shelf of data.shelves) {
+        // 활성 서가가 있고 zone이 비어 있지 않은 자료실만 (Backend summarizeActiveZones)
+        if (!shelf.active || shelf.zone === null || shelf.zone.trim() === '') continue
+        const entry = byZone.get(shelf.zone) ?? { floorNo: null, shelfCount: 0 }
+        entry.shelfCount += 1
+        if (shelf.floorNo !== null) {
+          entry.floorNo = entry.floorNo === null ? shelf.floorNo : Math.min(entry.floorNo, shelf.floorNo)
+        }
+        byZone.set(shelf.zone, entry)
+      }
+      return [...byZone.entries()]
+        .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)) // DB collation과 완전히 같지는 않다 (한계)
+        .map(([zone, { floorNo, shelfCount }]) => ({ zone, floorNo, shelfCount, hasOpenSession: open.has(zone) }))
+    },
+
+    getSessions(params = {}) {
+      const statuses = params.status ?? []
+      if (statuses.some((status) => !ALL_STATUSES.includes(status))) throw invalidInput()
+      if (
+        (params.page !== undefined && !Number.isInteger(params.page)) ||
+        (params.size !== undefined && !Number.isInteger(params.size))
+      ) {
+        throw invalidInput()
+      }
+      const page = Math.max(params.page ?? 0, 0)
+      const size = Math.min(Math.max(params.size ?? DEFAULT_PAGE_SIZE, 1), MAX_PAGE_SIZE)
+      if (page * size > MAX_OFFSET) throw invalidInput() // Backend는 "page 값이 너무 큽니다." 메시지를 쓴다
+
+      const filtered = data.sessions
+        .filter((s) => statuses.length === 0 || statuses.includes(s.status))
+        .sort((a, b) => (a.createdAt === b.createdAt ? b.id - a.id : a.createdAt < b.createdAt ? 1 : -1))
+      const pageItems = filtered.slice(page * size, page * size + size)
+      const floors = floorsBySession(pageItems.map((s) => s.id))
+      return {
+        content: pageItems.map((s) => toResponse(s, floors.get(s.id) ?? null)),
+        page,
+        size,
+        totalElements: filtered.length,
+        totalPages: Math.ceil(filtered.length / size),
+      }
+    },
+
+    getSession(id) {
+      if (!Number.isInteger(id)) throw invalidInput() // 숫자가 아닌 경로 변수는 Backend에서 400
+      const session = data.sessions.find((s) => s.id === id)
+      if (!session) {
+        throw fail(404, ERROR_CODE.SCAN_SESSION_NOT_FOUND, MESSAGE.SCAN_SESSION_NOT_FOUND)
+      }
+      return toResponse(session, floorsBySession([id]).get(id) ?? null)
+    },
+
+    createSession(request) {
+      // 1) 요청 본문 파싱: 잘못된 날짜 형식은 검증 오류보다 먼저 400(errors 없음)이 된다.
+      const planned = request.plannedStartDate
+      if (planned !== undefined && planned !== null && (typeof planned !== 'string' || !isValidIsoDate(planned))) {
+        throw invalidInput()
+      }
+      // 2) Bean Validation
+      const fieldErrors = [
+        validateRequiredText('sessionName', request.sessionName, MAX_SESSION_NAME_LENGTH),
+        validateRequiredText('zone', request.zone, MAX_ZONE_LENGTH),
+      ].filter((error): error is FieldError => error !== null)
+      if (fieldErrors.length > 0) throw invalidInput(fieldErrors)
+
+      // 3) 서비스 규칙: 예정일 → 미완료 회차 → 활성 서가
+      const currentMs = now()
+      if (planned && planned < seoulDate(currentMs)) {
+        throw fail(400, ERROR_CODE.INVALID_INPUT, '점검 예정일은 오늘 이후여야 합니다.')
+      }
+      if (openZones().has(request.zone)) {
+        throw fail(409, ERROR_CODE.SCAN_SESSION_ALREADY_OPEN, MESSAGE.SCAN_SESSION_ALREADY_OPEN)
+      }
+      const shelves = activeShelvesOf(request.zone)
+      if (shelves.length === 0) {
+        throw fail(400, ERROR_CODE.SCAN_NO_ACTIVE_SHELF, MESSAGE.SCAN_NO_ACTIVE_SHELF)
+      }
+
+      // 4) 저장: 회차와 대상 서가를 함께 등록한다. (검증을 모두 통과한 뒤에만 데이터를 바꾼다)
+      // Mock 정책: startedAt과 createdAt을 같은 시각으로 만든다. 실제 Backend는 두 값이 같다고 보장하지 않는다.
+      const createdAt = seoulDateTime(currentMs)
+      const session: MockSession = {
+        id: nextSessionId++,
+        sessionName: request.sessionName,
+        status: 'IN_PROGRESS',
+        zone: request.zone,
+        plannedStartDate: planned ?? null,
+        startedAt: createdAt,
+        finalizedAt: null,
+        createdAt,
+      }
+      data.sessions.push(session)
+      for (const shelf of shelves) {
+        data.sessionShelves.push({ sessionId: session.id, shelfId: shelf.id, scanStatus: 'WAITING' })
+      }
+      return toResponse(session, floorsBySession([session.id]).get(session.id) ?? null)
+    },
+
+    snapshot() {
+      return structuredClone(data)
+    },
+  }
+}
+
+// 앱 전체가 공유하는 Mock 저장소. 모듈이 처음 쓰일 때 시드로 만들어지고, 새로고침하면 초기화된다.
+let current: ScanStore | null = null
+
+export function getScanStore(): ScanStore {
+  current ??= createScanStore(createSeedData())
+  return current
+}
+
+/** 저장소를 시드(또는 지정한 데이터)로 되돌린다. 테스트에서 매번 깨끗한 상태로 시작할 때 사용한다. */
+export function resetScanStore(options: ScanStoreOptions & { data?: MockData } = {}): void {
+  current = createScanStore(options.data ?? createSeedData(), { now: options.now })
+}

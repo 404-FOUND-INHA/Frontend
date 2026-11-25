@@ -1,0 +1,104 @@
+/* 장서점검 회차 상세. 클래스는 scan- 접두어만 쓴다. 상태 배지 색은 scanBadge.css를 직접 import해서 쓴다. */
+
+.scan-detail { padding: 16px 0 8px; }
+
+/* 요약 */
+.scan-summary { padding-bottom: 16px; border-bottom: 1px solid var(--app-border); }
+.scan-summary-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.scan-summary .scan-badge { flex: none; padding: 3px 10px; border-radius: 6px; font-size: 13px; }
+.scan-summary-place { display: flex; align-items: center; gap: 4px; min-width: 0; font-size: 14px; color: #6b7280; overflow-wrap: anywhere; }
+.scan-summary-place svg { flex: none; color: #9ca3af; }
+.scan-summary-title {
+  margin: 14px 0 0;
+  font-family: inherit;
+  font-size: 21px;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: 0;
+  text-align: left;
+  color: var(--app-text);
+  overflow-wrap: anywhere;
+}
+.scan-summary-dates { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.scan-summary-dates li { display: flex; align-items: center; gap: 6px; font-size: 14px; color: #6b7280; }
+.scan-summary-dates svg { flex: none; color: #9ca3af; }
+
+/* 처리 단계 */
+.scan-progress { padding-top: 22px; }
+.scan-section-title { margin: 0 0 16px; font-size: 16px; font-weight: 700; color: var(--app-text); }
+.scan-step-list { list-style: none; margin: 0; padding: 0; }
+.scan-step { position: relative; display: flex; gap: 12px; padding-bottom: 22px; }
+.scan-step:last-child { padding-bottom: 0; }
+/* 단계 사이 연결선: 완료한 단계 뒤는 초록, 그 외는 회색 */
+.scan-step:not(:last-child)::before { content: ''; position: absolute; left: 13px; top: 32px; bottom: 4px; width: 2px; background: #d1d5db; }
+.scan-step--done:not(:last-child)::before { background: #22A76B; }
+.scan-step-mark {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 14px;
+  font-weight: 700;
+}
+.scan-step--current .scan-step-mark { background: var(--app-primary); color: #fff; }
+.scan-step--done .scan-step-mark { background: #22A76B; color: #fff; }
+.scan-step--waiting .scan-step-mark { background: #f3f4f6; border: 1px solid #e5e7eb; color: #9ca3af; }
+.scan-step-body { min-width: 0; padding-top: 2px; }
+.scan-step-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.scan-step-title { font-size: 16px; font-weight: 700; color: var(--app-text); }
+.scan-step--current .scan-step-title { color: var(--app-primary); }
+.scan-step--waiting .scan-step-title { color: #9ca3af; }
+.scan-step-tag { padding: 1px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; line-height: 1.6; color: #fff; }
+.scan-step-tag--current { background: var(--app-primary); }
+.scan-step-tag--done { background: #22A76B; }
+.scan-step-desc { margin: 4px 0 0; font-size: 13px; line-height: 1.45; color: #6b7280; }
+.scan-step--waiting .scan-step-desc { color: #9ca3af; }
+
+/* 안내 카드 */
+.scan-notice-card { display: flex; gap: 10px; margin-top: 24px; padding: 16px; border: 1px solid #dbeafe; border-radius: 12px; background: #eff6ff; }
+.scan-notice-card-icon { flex: none; display: grid; color: var(--app-primary); }
+.scan-notice-card-title { margin: 0; font-size: 15px; font-weight: 700; color: var(--app-primary-strong); }
+.scan-notice-card-text { margin: 3px 0 0; font-size: 13px; line-height: 1.45; color: #4b5563; }
+
+/* 로딩·오류·안내 */
+.scan-detail-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  margin: 0;
+  padding: 72px 0;
+  font-size: 14px;
+  color: #6b7280;
+  text-align: center;
+}
+.scan-detail-state p { margin: 0; }
+.scan-detail-actions { display: flex; gap: 8px; }
+.scan-detail-btn {
+  flex: none;
+  padding: 7px 16px;
+  border: 1px solid var(--app-primary);
+  border-radius: 16px;
+  background: #fff;
+  color: var(--app-primary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.scan-detail-btn:disabled { opacity: 0.5; cursor: default; }
+.scan-detail-btn--ghost { border-color: #d1d5db; color: #374151; }
+.scan-detail-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fef2f2;
+  font-size: 13px;
+  color: #b91c1c;
+}
