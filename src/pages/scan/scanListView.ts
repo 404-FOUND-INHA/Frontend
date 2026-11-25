@@ -39,7 +39,7 @@ export const SESSION_STATUS_LABEL: Record<ScanSessionStatus, string> = {
 }
 
 /** 'YYYY-MM-DD' 또는 'YYYY-MM-DDTHH:mm:ss'에서 유효한 날짜를 'YYYY.MM.DD'로 만든다. 시간대 변환은 하지 않는다(LocalDateTime은 시간대 정보가 없다). */
-function toDisplayDate(value: string | null | undefined): string | null {
+export function toDisplayDate(value: string | null | undefined): string | null {
   if (!value) return null
   const date = value.slice(0, 10)
   if (value.length > 10 && value[10] !== 'T') return null

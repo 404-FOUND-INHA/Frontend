@@ -1,8 +1,9 @@
 import { Link } from 'react-router-dom'
 import { ChevronRightIcon, MapPinIcon } from '@/components/common/icons'
 import type { ScanSessionResponse } from '@/types/scan/api'
-import { SCAN_NAV_ENABLED, scanPaths } from './scanPaths'
+import { FROM_LIST_STATE, SCAN_NAV_ENABLED, scanPaths } from './scanPaths'
 import { SESSION_STATUS_LABEL, formatSessionDate, formatSessionLocation } from './scanListView'
+import './scanBadge.css'
 
 const BADGE_CLASS = {
   IN_PROGRESS: 'scan-badge--in-progress',
@@ -10,7 +11,7 @@ const BADGE_CLASS = {
   COMPLETED: 'scan-badge--completed',
 } as const
 
-/** 회차 카드 1개. 상세 화면이 구현되기 전(SCAN_NAV_ENABLED.detail=false)에는 이동하지 않는다. */
+/** 회차 카드 1개. 상세 이동이 켜져 있으면 카드 전체가 링크이고, 목록에서 왔음을 router state로 알린다. */
 export default function ScanSessionCard({ session }: { session: ScanSessionResponse }) {
   const date = formatSessionDate(session)
   const location = formatSessionLocation(session)
@@ -36,7 +37,7 @@ export default function ScanSessionCard({ session }: { session: ScanSessionRespo
   )
 
   return SCAN_NAV_ENABLED.detail ? (
-    <Link to={scanPaths.detail(session.id)} className="scan-card scan-card--link">
+    <Link to={scanPaths.detail(session.id)} state={FROM_LIST_STATE} className="scan-card scan-card--link">
       {content}
     </Link>
   ) : (

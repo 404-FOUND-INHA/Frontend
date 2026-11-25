@@ -1,0 +1,13 @@
+/* 상태 배지 색. 목록 카드와 상세 요약이 각자 import해서 CSS 로딩 순서에 의존하지 않는다. 완료 색은 피그마 기준. */
+
+.scan-badge {
+  padding: 2px 10px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+.scan-badge--in-progress { background: #eff6ff; border-color: #bcd2ee; color: var(--app-primary); }
+.scan-badge--review { background: #fefce8; border-color: #fde68a; color: #92400e; }
+.scan-badge--completed { background: rgba(34, 167, 107, 0.12); border-color: rgba(34, 167, 107, 0.25); color: #22A76B; }

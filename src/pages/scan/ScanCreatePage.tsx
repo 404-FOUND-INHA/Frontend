@@ -24,8 +24,9 @@ import {
 import { isFromList, scanPaths } from './scanPaths'
 import './scanCreate.css'
 
-// 장서점검 회차 생성. 성공하면 전체 목록(/scan)으로 replace 이동한다.
-// 5단계에서 상세 화면이 생기면 성공 이동만 scanPaths.detail(created.id)로 바꾼다.
+// 장서점검 회차 생성. 성공하면 신규 회차 상세 화면으로 replace 이동한다(생성 폼으로 돌아오지 않는다).
+// FROM_LIST_STATE를 넘기지 않으므로 상세의 뒤로가기는 필터가 걸렸을 수 있는 이전 목록이 아니라 전체 목록(/scan)으로 간다.
+// (필터가 걸린 목록으로 돌아가면 새 진행 중 회차가 보이지 않기 때문)
 export default function ScanCreatePage() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -106,7 +107,7 @@ export default function ScanCreatePage() {
     submittingRef.current = true
     setFailure(null)
     create.mutate(toCreateRequest(submitted), {
-      onSuccess: () => navigate(scanPaths.list, { replace: true }),
+      onSuccess: (created) => navigate(scanPaths.detail(created.id), { replace: true }),
       onError: handleFailure,
       onSettled: () => {
         submittingRef.current = false

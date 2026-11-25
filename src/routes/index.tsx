@@ -3,6 +3,7 @@ import MainLayout from '@/layouts/MainLayout'
 import HomePage from '@/pages/HomePage'
 import NotFoundPage from '@/pages/NotFoundPage'
 import ScanCreatePage from '@/pages/scan/ScanCreatePage'
+import ScanDetailPage from '@/pages/scan/ScanDetailPage'
 import ScanListPage from '@/pages/scan/ScanListPage'
 import SplashPage from '@/pages/onboarding/SplashPage'
 import OnboardingPage from '@/pages/onboarding/OnboardingPage'
@@ -25,6 +26,7 @@ export const router = createBrowserRouter([
       { index: true, element: <HomePage /> },
       { path: 'scan', element: <ScanListPage /> },
       { path: 'scan/new', element: <ScanCreatePage /> },
+      { path: 'scan/:sessionId', element: <ScanDetailPage /> },
       { path: '*', element: <NotFoundPage /> },
     ],
   },
