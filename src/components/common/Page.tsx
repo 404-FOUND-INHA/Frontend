@@ -11,13 +11,15 @@ interface PageProps {
   right?: ReactNode
   /** 본문 스크롤 영역 아래(하단 탭 바로 위)에 고정되는 영역. 예: 생성 화면의 CTA */
   footer?: ReactNode
+  /** 'gray'이면 본문 배경을 옅은 회색(#f8f9fa)으로 한다. 헤더는 흰색 그대로다. 목록 화면용. */
+  tone?: 'gray'
   children?: ReactNode
 }
 
 /** 고정 헤더 + 본문만 스크롤 + 선택적 고정 하단 영역. 하단 탭은 MainLayout이 맡는다. */
-export default function Page({ title, onBack, right, footer, children }: PageProps) {
+export default function Page({ title, onBack, right, footer, tone, children }: PageProps) {
   return (
-    <div className="pg">
+    <div className={tone === 'gray' ? 'pg pg--gray' : 'pg'}>
       <header className="pg-header">
         {onBack && (
           <button type="button" className="pg-back" onClick={onBack} aria-label="뒤로 가기">
