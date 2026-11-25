@@ -13,12 +13,12 @@ import {
   parseStatusFilter,
   type StatusFilterKey,
 } from './scanListView'
-import { SCAN_NAV_ENABLED, scanPaths } from './scanPaths'
+import { FROM_LIST_STATE, SCAN_NAV_ENABLED, scanPaths } from './scanPaths'
 import './scanList.css'
 
 function CreateFab() {
   return SCAN_NAV_ENABLED.create ? (
-    <Link to={scanPaths.create} className="scan-fab" aria-label="회차 생성">
+    <Link to={scanPaths.create} state={FROM_LIST_STATE} className="scan-fab" aria-label="회차 생성">
       <PlusIcon size={26} />
     </Link>
   ) : (

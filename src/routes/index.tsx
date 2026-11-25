@@ -2,6 +2,7 @@ import { createBrowserRouter, redirect } from 'react-router-dom'
 import MainLayout from '@/layouts/MainLayout'
 import HomePage from '@/pages/HomePage'
 import NotFoundPage from '@/pages/NotFoundPage'
+import ScanCreatePage from '@/pages/scan/ScanCreatePage'
 import ScanListPage from '@/pages/scan/ScanListPage'
 import SplashPage from '@/pages/onboarding/SplashPage'
 import OnboardingPage from '@/pages/onboarding/OnboardingPage'
@@ -23,6 +24,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <HomePage /> },
       { path: 'scan', element: <ScanListPage /> },
+      { path: 'scan/new', element: <ScanCreatePage /> },
       { path: '*', element: <NotFoundPage /> },
     ],
   },

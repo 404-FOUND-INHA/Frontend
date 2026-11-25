@@ -106,3 +106,38 @@ export function PlusIcon(props: IconProps) {
     </Svg>
   )
 }
+
+export function ChevronDownIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="m5.5 9.5 6.5 6.5 6.5-6.5" />
+    </Svg>
+  )
+}
+
+export function CalendarIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <rect x="3.5" y="5" width="17" height="15.5" rx="2" />
+      <path d="M3.5 10h17M8 3v4M16 3v4" />
+    </Svg>
+  )
+}
+
+/** 서가: 칸이 나뉜 책장 */
+export function ShelfIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <rect x="4" y="3.5" width="16" height="17" rx="1.5" />
+      <path d="M4 9.5h16M4 15h16M9 3.5v6M14 9.5v5.5M8 15v5.5" />
+    </Svg>
+  )
+}
+
+export function CheckIcon(props: IconProps) {
+  return (
+    <Svg strokeWidth={2.4} {...props}>
+      <path d="m5 12.5 4.5 4.5L19 7.5" />
+    </Svg>
+  )
+}
