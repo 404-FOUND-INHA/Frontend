@@ -15,7 +15,7 @@ const MOCK_LATENCY_MS = 300
 
 // 화면에서 로딩 상태가 보이도록 지연시키되, 테스트에서는 지연하지 않는다.
 // 지연 후에 저장소를 읽고 바꾸므로 검사와 저장 사이에 await가 끼지 않는다. (store.ts 설명 참고)
-function simulateLatency(): Promise<void> {
+export function simulateLatency(): Promise<void> {
   if (import.meta.env.MODE === 'test') return Promise.resolve()
   return new Promise((resolve) => setTimeout(resolve, MOCK_LATENCY_MS))
 }
