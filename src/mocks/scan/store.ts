@@ -1,4 +1,5 @@
 import { ApiError, ERROR_CODE } from '@/api/ApiError'
+import type { ObservationDetailResponse, ScanAnalysisResponse, ShelfObservationsResponse } from '@/types/scan/analysis'
 import type {
   FieldError,
   PageResponse,
@@ -11,11 +12,12 @@ import type {
 } from '@/types/scan/api'
 import { isValidIsoDate } from '@/utils/calendarDate'
 import { seoulDate, seoulDateTime } from '@/utils/seoulTime'
+import { buildAnalysis, buildObservationDetail, buildShelfObservations } from './analysis'
 import { createSeedData } from './seed'
 import type { MockData, MockSession } from './types'
 
-// 메모리 단일 원본. 목록·상세·자료실 응답은 모두 이 데이터에서 읽을 때 파생한다. 새로고침하면 시드로 초기화된다.
-// Backend ScanSessionService의 규칙을 따르되, 실제 DB·락·검증 메시지까지 재현하지는 않는다.
+// 메모리 단일 원본. 목록·상세·자료실·분석 결과 응답은 모두 이 데이터에서 읽을 때 파생한다. 새로고침하면 시드로 초기화된다.
+// Backend ScanSessionService, ObservationQueryService의 규칙을 따르되, 실제 DB·락·검증 메시지까지 재현하지는 않는다.
 //
 // 모든 메서드는 동기 함수다. "중복 검사 → 저장"이 await 없이 한 번에 실행되므로,
 // 데이터 접근 계층(api/scanSessions.ts)에서 요청이 동시에 들어와도 이벤트 루프 안에서 끼어들 수 없다.
@@ -36,6 +38,8 @@ const MESSAGE = {
   SCAN_SESSION_NOT_FOUND: '장서점검 회차를 찾을 수 없습니다.',
   SCAN_SESSION_ALREADY_OPEN: '해당 자료실에 완료되지 않은 점검 회차가 있습니다.',
   SCAN_NO_ACTIVE_SHELF: '점검할 수 있는 서가가 없는 자료실입니다.',
+  SCAN_SHELF_NOT_IN_SESSION: '해당 회차의 점검 대상 서가가 아닙니다.',
+  SCAN_OBSERVATION_NOT_FOUND: '해당 회차의 관측 도서를 찾을 수 없습니다.',
 } as const
 
 export interface ScanStore {
@@ -43,6 +47,10 @@ export interface ScanStore {
   getSessions(params?: ScanSessionListParams): PageResponse<ScanSessionResponse>
   getSession(id: number): ScanSessionResponse
   createSession(request: ScanSessionCreateRequest): ScanSessionResponse
+  /** 자동 분석 결과 요약과 서가별 현황. 회차 상태와 무관하게 조회할 수 있고 수신 전에는 빈 결과다. */
+  getAnalysis(sessionId: number): ScanAnalysisResponse
+  getShelfObservations(sessionId: number, shelfId: number): ShelfObservationsResponse
+  getObservation(sessionId: number, observationId: number): ObservationDetailResponse
   /** 현재 저장소 내용의 복사본 (테스트·디버깅용) */
   snapshot(): MockData
 }
@@ -115,6 +123,25 @@ export function createScanStore(initial: MockData, options: ScanStoreOptions = {
     }
   }
 
+  function requireSession(sessionId: number): MockSession {
+    const session = data.sessions.find((s) => s.id === sessionId)
+    if (!session) {
+      throw fail(404, ERROR_CODE.SCAN_SESSION_NOT_FOUND, MESSAGE.SCAN_SESSION_NOT_FOUND)
+    }
+    return session
+  }
+
+  /**
+   * 분석 결과 조회용. 모든 경로 ID를 먼저 검사해 안전한 정수가 아니면 400이고, 그다음 회차 존재를 확인한다.
+   * 서가·관측 확인은 그 뒤다. Backend의 ID는 Java Long이라 2^53 - 1을 넘어도 Long 범위 안이면 404지만,
+   * JavaScript number로는 그런 ID를 정확히 구분할 수 없어 Mock은 400으로 거부한다.
+   * 0과 음수는 Backend처럼 존재하지 않는 ID(404)다.
+   */
+  function requireQueryTarget(sessionId: number, ...otherIds: number[]): MockSession {
+    if (![sessionId, ...otherIds].every(Number.isSafeInteger)) throw invalidInput()
+    return requireSession(sessionId)
+  }
+
   return {
     getRooms() {
       const open = openZones()
@@ -162,12 +189,32 @@ export function createScanStore(initial: MockData, options: ScanStoreOptions = {
     },
 
     getSession(id) {
-      if (!Number.isInteger(id)) throw invalidInput() // 숫자가 아닌 경로 변수는 Backend에서 400
-      const session = data.sessions.find((s) => s.id === id)
-      if (!session) {
-        throw fail(404, ERROR_CODE.SCAN_SESSION_NOT_FOUND, MESSAGE.SCAN_SESSION_NOT_FOUND)
-      }
+      if (!Number.isInteger(id)) throw invalidInput()
+      const session = requireSession(id)
       return toResponse(session, floorsBySession([id]).get(id) ?? null)
+    },
+
+    getAnalysis(sessionId) {
+      const { id, status } = requireQueryTarget(sessionId)
+      return buildAnalysis(data, { id, status, processingStage: processingStageOf(status) })
+    },
+
+    getShelfObservations(sessionId, shelfId) {
+      requireQueryTarget(sessionId, shelfId)
+      const link = data.sessionShelves.find((ss) => ss.sessionId === sessionId && ss.shelfId === shelfId)
+      if (!link) {
+        throw fail(404, ERROR_CODE.SCAN_SHELF_NOT_IN_SESSION, MESSAGE.SCAN_SHELF_NOT_IN_SESSION)
+      }
+      return buildShelfObservations(data, link)
+    },
+
+    getObservation(sessionId, observationId) {
+      requireQueryTarget(sessionId, observationId)
+      const observation = data.observations.find((o) => o.id === observationId && o.sessionId === sessionId)
+      if (!observation) {
+        throw fail(404, ERROR_CODE.SCAN_OBSERVATION_NOT_FOUND, MESSAGE.SCAN_OBSERVATION_NOT_FOUND)
+      }
+      return buildObservationDetail(data, observation)
     },
 
     createSession(request) {

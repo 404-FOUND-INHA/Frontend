@@ -1,0 +1,40 @@
+/* 회차 상세의 자동 분석 결과. 클래스는 scan- 접두어만 쓴다. 제목·버튼·오류 안내는 scanDetail.css를 함께 쓴다. */
+
+.scan-analysis { padding-top: 24px; }
+.scan-analysis .scan-section-title { margin-bottom: 12px; }
+
+.scan-analysis-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0; }
+/* 높이 약 72px (시안 PNG 기준) */
+.scan-analysis-card { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; padding: 10px 12px 9px; border: 1px solid var(--app-border); border-radius: 10px; background: #fff; }
+.scan-analysis-card dt { font-size: 12px; font-weight: 700; line-height: 20px; color: #4b5563; }
+.scan-analysis-card dd { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px; margin: 2px 0 0; }
+.scan-analysis-card strong { font-size: 22px; font-weight: 700; line-height: 28px; color: var(--app-text); overflow-wrap: anywhere; }
+.scan-analysis-card dd span { font-size: 13px; color: #6b7280; }
+
+/* 상태별 색 (시안 PNG 기준). 오배치 라벨 글자는 작은 글씨의 명암비 4.5:1을 위해 시안보다 어둡게 한다. */
+.scan-analysis-card--normal dt,
+.scan-analysis-card--normal strong { color: #006c49; }
+.scan-analysis-card--misplaced dt,
+.scan-analysis-card--reviewRequired dt { padding: 0 8px; border-radius: 4px; }
+.scan-analysis-card--misplaced dt { background: #fef3c7; color: #b45309; }
+.scan-analysis-card--misplaced strong { color: #d97706; }
+.scan-analysis-card--reviewRequired dt { background: #f3f4f6; color: #1f2937; }
+.scan-analysis-card--reviewRequired strong { color: #1f2937; }
+
+.scan-analysis-empty { margin: 12px 0 0; font-size: 13px; line-height: 1.45; color: #6b7280; text-align: center; }
+
+/* 로딩·오류·수신 전: 이 영역 안에서만 표시한다 */
+.scan-analysis-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: 28px 12px;
+  border: 1px solid var(--app-border);
+  border-radius: 10px;
+  font-size: 14px;
+  color: #6b7280;
+  text-align: center;
+}
+.scan-analysis-state p { margin: 0; }

@@ -1,8 +1,10 @@
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import Page from '@/components/common/Page'
 import { useScanSession } from '@/hooks/scan/useScanSession'
+import ScanAnalysisSection from './ScanAnalysisSection'
 import ScanProgressSteps from './ScanProgressSteps'
 import ScanSessionSummary from './ScanSessionSummary'
+import { showsAnalysis } from './scanAnalysisView'
 import { getDetailViewState, parseSessionId } from './scanDetailView'
 import { isFromList, scanPaths } from './scanPaths'
 import './scanDetail.css'
@@ -14,7 +16,7 @@ const BODY_MESSAGE = {
   error: '회차 정보를 불러오지 못했습니다',
 } as const
 
-// 장서점검 회차 상세(기본 정보와 처리 단계). 분석 결과·검토 현황 등은 이후 이슈에서 이 본문 아래에 섹션으로 추가한다.
+// 장서점검 회차 상세(기본 정보, 처리 단계, 자동 분석 결과). 검토 현황 등은 이후 이슈에서 이 본문 아래에 섹션으로 추가한다.
 export default function ScanDetailPage() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -73,6 +75,7 @@ export default function ScanDetailPage() {
             )}
             <ScanSessionSummary session={query.data} />
             <ScanProgressSteps status={query.data.status} />
+            {showsAnalysis(query.data.status) && <ScanAnalysisSection sessionId={query.data.id} />}
           </>
         )}
       </div>

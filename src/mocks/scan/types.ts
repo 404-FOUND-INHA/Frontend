@@ -1,4 +1,12 @@
-// Mock 저장소 내부 모델. 실제 API 계약이 아니라 DB 테이블(shelf, scan_session, scan_session_shelf)을 단순화한 것이다.
+// Mock 저장소 내부 모델. 실제 API 계약이 아니라 DB 테이블(shelf, scan_session, scan_session_shelf,
+// book, book_observation, observation_match_candidate)을 단순화한 것이다.
+import type {
+  BookLifecycleStatus,
+  CandidateReason,
+  ObservationAnalysisStatus,
+  ObservationStatusReason,
+  ScanShelfStatus,
+} from '@/types/scan/analysis'
 import type { ScanSessionStatus } from '@/types/scan/api'
 
 export interface MockShelf {
@@ -6,6 +14,9 @@ export interface MockShelf {
   shelfCode: string
   zone: string | null
   floorNo: number | null
+  widthCm: number | null
+  /** 서가 목록의 표시 순서. 조회 응답에는 담지 않고 정렬에만 쓴다. */
+  displayOrder: number | null
   active: boolean
 }
 
@@ -21,17 +32,64 @@ export interface MockSession {
   createdAt: string
 }
 
-export type MockScanShelfStatus = 'WAITING' | 'RESULT_RECEIVED'
+export type MockScanShelfStatus = ScanShelfStatus
 
-/** 회차의 점검 대상 서가. 회차 생성 시점의 활성 서가가 등록된다. */
+/**
+ * 회차의 점검 대상 서가. 회차 생성 시점의 활성 서가가 등록된다.
+ * 관측 수(detectedBookCount)와 촬영 시각(scannedAt)은 저장하지 않고 관측에서 계산한다.
+ */
 export interface MockSessionShelf {
   sessionId: number
   shelfId: number
   scanStatus: MockScanShelfStatus
 }
 
+/** 도서 원장 */
+export interface MockBook {
+  id: number
+  registrationNo: string
+  title: string
+  callNumber: string
+  copyNumber: string | null
+  lifecycleStatus: BookLifecycleStatus
+  expectedShelfId: number | null
+  widthCm: number | null
+}
+
+export interface MockCandidate {
+  rank: number
+  reason: CandidateReason | null
+  bookId: number
+}
+
+/**
+ * 관측 1건과 자동 분석 결과. 판정은 시드(또는 테스트 데이터)가 정해 두며 Mock은 매칭을 수행하지 않는다.
+ * Backend는 detectedShelfId에 NULL을 허용하지만 결과 수신 시 항상 채우므로 Mock에서는 필수다.
+ */
+export interface MockObservation {
+  id: number
+  sessionId: number
+  shelfId: number
+  detectedOrder: number
+  xPositionCm: number | null
+  detectedLabelRaw: string | null
+  detectedTitle: string | null
+  detectedClassificationNo: string | null
+  detectedBookSymbol: string | null
+  detectedCopyNumber: string | null
+  detectedAt: string | null
+  receivedAt: string
+  analysisStatus: ObservationAnalysisStatus
+  statusReason: ObservationStatusReason | null
+  matchConfidence: number | null
+  bookId: number | null
+  candidates: MockCandidate[]
+}
+
 export interface MockData {
   shelves: MockShelf[]
   sessions: MockSession[]
   sessionShelves: MockSessionShelf[]
+  books: MockBook[]
+  observations: MockObservation[]
 }
