@@ -6,6 +6,7 @@ import type {
   ScanSessionListParams,
   ScanSessionResponse,
 } from '@/types/scan/api'
+import type { FinalizeResponse } from '@/types/scan/review'
 
 // 장서점검 A1 데이터 접근 계층. 지금은 Mock 저장소만 사용하고 실제 HTTP 구현은 연동 이슈에서 추가한다.
 // 함수 시그니처와 반환 타입은 실제 API의 data(응답 봉투를 벗긴 값)와 같고,
@@ -42,4 +43,10 @@ export async function getScanSession(id: number): Promise<ScanSessionResponse> {
 export async function createScanSession(request: ScanSessionCreateRequest): Promise<ScanSessionResponse> {
   await simulateLatency()
   return getScanStore().createSession(request)
+}
+
+/** POST /api/scan-sessions/{id}/finalize (사서 전용, 권한 처리는 실제 API 연동 단계에서 다룬다) */
+export async function finalizeScanSession(id: number): Promise<FinalizeResponse> {
+  await simulateLatency()
+  return getScanStore().finalizeSession(id)
 }
