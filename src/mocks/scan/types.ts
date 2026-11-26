@@ -1,5 +1,5 @@
 // Mock 저장소 내부 모델. 실제 API 계약이 아니라 DB 테이블(shelf, scan_session, scan_session_shelf,
-// book, book_observation, observation_match_candidate)을 단순화한 것이다.
+// book, book_observation, observation_match_candidate, review, app_user)을 단순화한 것이다.
 import type {
   BookLifecycleStatus,
   CandidateReason,
@@ -8,6 +8,7 @@ import type {
   ScanShelfStatus,
 } from '@/types/scan/analysis'
 import type { ScanSessionStatus } from '@/types/scan/api'
+import type { ReviewAction, ReviewFinalStatus } from '@/types/scan/review'
 
 export interface MockShelf {
   id: number
@@ -86,10 +87,33 @@ export interface MockObservation {
   candidates: MockCandidate[]
 }
 
+/** 검토자 (app_user 중 응답에 필요한 값) */
+export interface MockUser {
+  id: number
+  name: string
+}
+
+/**
+ * 관측 1건에 대한 사서의 검토 결과(관측당 최대 1건). 자동 분석 결과(MockObservation)는 바꾸지 않고 따로 보관한다.
+ * 검토 건수와 완료 여부는 저장하지 않고 이 기록에서 계산한다.
+ */
+export interface MockReview {
+  id: number
+  observationId: number
+  action: ReviewAction
+  finalStatus: ReviewFinalStatus
+  finalBookId: number | null
+  reviewerId: number
+  comment: string | null
+  reviewedAt: string
+}
+
 export interface MockData {
   shelves: MockShelf[]
   sessions: MockSession[]
   sessionShelves: MockSessionShelf[]
   books: MockBook[]
   observations: MockObservation[]
+  users: MockUser[]
+  reviews: MockReview[]
 }

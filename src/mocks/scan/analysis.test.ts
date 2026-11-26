@@ -109,6 +109,8 @@ function customData(observations: MockObservation[] = defaultObservations()): Mo
       book(5, { expectedShelfId: 3 }),
     ],
     observations,
+    users: [],
+    reviews: [],
   }
 }
 
@@ -672,6 +674,18 @@ describe('시각 형식', () => {
   const withTime = (time: string) => {
     const data = customData([unidentified(1, 'OCR_FAILED', { detectedAt: time, receivedAt: time })])
     Object.assign(data.sessions[0], { status: 'COMPLETED', startedAt: time, createdAt: time, finalizedAt: time })
+    // 확정된 회차에는 미검토 관측이 없어야 한다.
+    data.users.push({ id: 1, name: '사서' })
+    data.reviews.push({
+      id: 1,
+      observationId: 1,
+      action: 'MARK_UNIDENTIFIED',
+      finalStatus: 'UNIDENTIFIED',
+      finalBookId: null,
+      reviewerId: 1,
+      comment: null,
+      reviewedAt: time,
+    })
     return findInvariantViolations(data)
   }
 
@@ -681,6 +695,15 @@ describe('시각 형식', () => {
       expect(withTime(`2026-11-01T10:00:${seconds}`)).toEqual([])
     },
   )
+
+  it.each([
+    '2024-02-29T23:59:59.999999',
+    '2000-02-29T00:00:00',
+    '2026-12-31T23:59:59',
+    '2026-01-01T00:00:00.000001',
+  ])('실제 존재하는 날짜·시각 %s을 허용한다', (time) => {
+    expect(withTime(time)).toEqual([])
+  })
 
   it.each([
     '2026-11-01',
@@ -694,9 +717,20 @@ describe('시각 형식', () => {
     '2026-11-01T10:00:00.5+09:00',
     ' 2026-11-01T10:00:00',
     '2026-11-01T10:00:00 ',
+    '2026-00-01T10:00:00',
+    '2026-13-01T10:00:00',
+    '2026-11-00T10:00:00',
+    '2026-11-31T10:00:00',
+    '2026-02-29T10:00:00',
+    '2100-02-29T10:00:00',
+    '2026-11-01T24:00:00',
+    '2026-11-01T99:00:00',
+    '2026-11-01T14:60:00',
+    '2026-11-01T14:99:00',
+    '2026-11-01T14:00:60',
   ])('잘못된 시각 "%s"은 모든 시각 필드에서 위반이다', (time) => {
     const violations = withTime(time).join('\n')
-    for (const field of ['startedAt', 'createdAt', 'receivedAt', 'detectedAt']) {
+    for (const field of ['startedAt', 'createdAt', 'finalizedAt', 'receivedAt', 'detectedAt', 'reviewedAt']) {
       expect(violations).toContain(`${field} 형식 오류`)
     }
   })

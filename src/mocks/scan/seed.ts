@@ -1,4 +1,5 @@
 import { buildSeedAnalysis } from './seedAnalysis'
+import { buildSeedReviews } from './seedReview'
 import type { MockData, MockScanShelfStatus, MockSession, MockSessionShelf, MockShelf } from './types'
 
 // 결정적(deterministic) 시드 데이터. 호출할 때마다 새 객체를 만들어 테스트와 화면 확인을 반복 가능하게 한다.
@@ -15,17 +16,17 @@ export const SEED_ZONES = {
 } as const
 
 /**
- * 후속 이슈(#4~#6)가 같은 회차 위에 분석·검토·후보 Mock을 붙일 수 있도록 ID를 고정한다.
- * 1~7은 시나리오 회차이고, 이력 회차는 100번부터 시작한다.
+ * 분석·검토·후보 Mock이 같은 회차를 쓰도록 ID를 고정한다.
+ * 1~7은 시나리오 회차이고, 이력 회차는 100번부터 시작한다. 필수 검토는 자동 분석이 REVIEW_REQUIRED인 관측이다.
  */
 export const SEED_SESSION_IDS = {
   VISION_WAITING: 1, // IN_PROGRESS (인문과학정보실)
-  REVIEW_PARTIAL: 2, // REVIEW, 후속: 필수 검토 5/8
-  REVIEW_COMPLETE: 3, // REVIEW, 후속: 필수 검토 8/8
-  REVIEW_NONE: 4, // REVIEW, 후속: 필수 검토 0건
-  COMPLETED_PENDING: 5, // COMPLETED, 후속: 후보 계산 전
-  COMPLETED_READY: 6, // COMPLETED, 후속: 후보 있음
-  COMPLETED_EMPTY: 7, // COMPLETED, 후속: 후보 0건
+  REVIEW_PARTIAL: 2, // REVIEW, 필수 검토 3건 중 2건 완료
+  REVIEW_COMPLETE: 3, // REVIEW, 필수 검토 7건 모두 완료
+  REVIEW_NONE: 4, // REVIEW, 필수 검토 0건 (관측도 0건)
+  COMPLETED_PENDING: 5, // COMPLETED, 필수 검토 1건
+  COMPLETED_READY: 6, // COMPLETED, 필수 검토 2건
+  COMPLETED_EMPTY: 7, // COMPLETED, 필수 검토 0건 (이상 없음)
 } as const
 
 const HISTORY_FIRST_ID = 100
@@ -136,5 +137,6 @@ export function createSeedData(): MockData {
   const shelves = buildShelves()
   const sessions = [...scenarioSessions(), ...historySessions()]
   const sessionShelves = buildSessionShelves(sessions, shelves)
-  return { shelves, sessions, sessionShelves, ...buildSeedAnalysis({ shelves, sessions, sessionShelves }) }
+  const { books, observations } = buildSeedAnalysis({ shelves, sessions, sessionShelves })
+  return { shelves, sessions, sessionShelves, observations, ...buildSeedReviews({ sessions, books, observations }) }
 }

@@ -10,14 +10,16 @@ import type {
   ScanSessionResponse,
   ScanSessionStatus,
 } from '@/types/scan/api'
+import type { ReviewListParams, ReviewListResponse } from '@/types/scan/review'
 import { isValidIsoDate } from '@/utils/calendarDate'
 import { seoulDate, seoulDateTime } from '@/utils/seoulTime'
 import { buildAnalysis, buildObservationDetail, buildShelfObservations } from './analysis'
+import { buildReviewList } from './review'
 import { createSeedData } from './seed'
 import type { MockData, MockSession } from './types'
 
-// 메모리 단일 원본. 목록·상세·자료실·분석 결과 응답은 모두 이 데이터에서 읽을 때 파생한다. 새로고침하면 시드로 초기화된다.
-// Backend ScanSessionService, ObservationQueryService의 규칙을 따르되, 실제 DB·락·검증 메시지까지 재현하지는 않는다.
+// 메모리 단일 원본. 목록·상세·자료실·분석 결과·사서 검토 응답은 모두 이 데이터에서 읽을 때 파생한다. 새로고침하면 시드로 초기화된다.
+// Backend ScanSessionService, ObservationQueryService, ReviewService(조회)의 규칙을 따르되, 실제 DB·락·검증 메시지까지 재현하지는 않는다.
 //
 // 모든 메서드는 동기 함수다. "중복 검사 → 저장"이 await 없이 한 번에 실행되므로,
 // 데이터 접근 계층(api/scanSessions.ts)에서 요청이 동시에 들어와도 이벤트 루프 안에서 끼어들 수 없다.
@@ -29,6 +31,7 @@ const ALL_STATUSES: readonly ScanSessionStatus[] = ['IN_PROGRESS', 'REVIEW', 'CO
 const DEFAULT_PAGE_SIZE = 20
 const MAX_PAGE_SIZE = 100
 const MAX_OFFSET = 2_147_483_647 // Java int 최댓값. 넘으면 Backend는 400으로 막는다.
+const MIN_INT = -2_147_483_648 // Java int 최솟값
 const MAX_SESSION_NAME_LENGTH = 100
 const MAX_ZONE_LENGTH = 30
 
@@ -51,6 +54,8 @@ export interface ScanStore {
   getAnalysis(sessionId: number): ScanAnalysisResponse
   getShelfObservations(sessionId: number, shelfId: number): ShelfObservationsResponse
   getObservation(sessionId: number, observationId: number): ObservationDetailResponse
+  /** 검토 대상 목록과 회차 전체의 검토 진행 현황. 회차 상태와 무관하게 조회할 수 있다. */
+  getReviews(sessionId: number, params?: ReviewListParams): ReviewListResponse
   /** 현재 저장소 내용의 복사본 (테스트·디버깅용) */
   snapshot(): MockData
 }
@@ -64,8 +69,13 @@ function fail(status: number, code: string, message: string, errors: FieldError[
   return new ApiError(status, { code, message, errors })
 }
 
-function invalidInput(errors: FieldError[] = []): ApiError {
-  return fail(400, ERROR_CODE.INVALID_INPUT, MESSAGE.INVALID_INPUT, errors)
+function invalidInput(errors: FieldError[] = [], message: string = MESSAGE.INVALID_INPUT): ApiError {
+  return fail(400, ERROR_CODE.INVALID_INPUT, message, errors)
+}
+
+/** Backend의 int 파라미터에 바인딩할 수 있는 값인가 */
+function isJavaInt(value: number): boolean {
+  return Number.isInteger(value) && value >= MIN_INT && value <= MAX_OFFSET
 }
 
 function processingStageOf(status: ScanSessionStatus): ProcessingStage {
@@ -132,7 +142,7 @@ export function createScanStore(initial: MockData, options: ScanStoreOptions = {
   }
 
   /**
-   * 분석 결과 조회용. 모든 경로 ID를 먼저 검사해 안전한 정수가 아니면 400이고, 그다음 회차 존재를 확인한다.
+   * 분석 결과와 검토 조회용. 모든 ID 파라미터를 먼저 검사해 안전한 정수가 아니면 400이고, 그다음 회차 존재를 확인한다.
    * 서가·관측 확인은 그 뒤다. Backend의 ID는 Java Long이라 2^53 - 1을 넘어도 Long 범위 안이면 404지만,
    * JavaScript number로는 그런 ID를 정확히 구분할 수 없어 Mock은 400으로 거부한다.
    * 0과 음수는 Backend처럼 존재하지 않는 ID(404)다.
@@ -215,6 +225,20 @@ export function createScanStore(initial: MockData, options: ScanStoreOptions = {
         throw fail(404, ERROR_CODE.SCAN_OBSERVATION_NOT_FOUND, MESSAGE.SCAN_OBSERVATION_NOT_FOUND)
       }
       return buildObservationDetail(data, observation)
+    },
+
+    getReviews(sessionId, params = {}) {
+      const { shelfId, reviewed } = params
+      // 파라미터 형식 오류(400)는 회차 확인보다 먼저다.
+      const requested = { page: params.page ?? 0, size: params.size ?? DEFAULT_PAGE_SIZE }
+      if (!isJavaInt(requested.page) || !isJavaInt(requested.size)) throw invalidInput()
+      if (reviewed !== undefined && typeof reviewed !== 'boolean') throw invalidInput()
+      // shelfId는 회차의 대상 서가인지 확인하지 않는다. 대상이 아니면 빈 목록이다.
+      requireQueryTarget(sessionId, ...(shelfId === undefined ? [] : [shelfId]))
+      const page = Math.max(requested.page, 0)
+      const size = Math.min(Math.max(requested.size, 1), MAX_PAGE_SIZE)
+      if (page * size > MAX_OFFSET) throw invalidInput([], 'page 값이 너무 큽니다.')
+      return buildReviewList(data, sessionId, { shelfId, reviewed, page, size })
     },
 
     createSession(request) {
