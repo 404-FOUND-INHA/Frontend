@@ -1,3 +1,4 @@
+import { buildSeedAnalysis } from './seedAnalysis'
 import type { MockData, MockScanShelfStatus, MockSession, MockSessionShelf, MockShelf } from './types'
 
 // 결정적(deterministic) 시드 데이터. 호출할 때마다 새 객체를 만들어 테스트와 화면 확인을 반복 가능하게 한다.
@@ -48,17 +49,24 @@ const ZONE_SPECS: ZoneSpec[] = [
   { zone: SEED_ZONES.ARCHIVE, prefix: 'Z', floorNo: 1, active: 0, inactive: 2 },
 ]
 
+const SHELF_WIDTH_CM = 90
+// 폭 정보가 없는 서가 (shelfWidthCm null 확인용)
+const SHELF_CODES_WITHOUT_WIDTH = new Set(['D-02', 'F-01'])
+
 function buildShelves(): MockShelf[] {
   const shelves: MockShelf[] = []
   let id = 1
   for (const spec of ZONE_SPECS) {
     const total = spec.active + spec.inactive
     for (let n = 1; n <= total; n++) {
+      const shelfCode = `${spec.prefix}-${String(n).padStart(2, '0')}`
       shelves.push({
         id: id++,
-        shelfCode: `${spec.prefix}-${String(n).padStart(2, '0')}`,
+        shelfCode,
         zone: spec.zone,
         floorNo: spec.floorNo,
+        widthCm: SHELF_CODES_WITHOUT_WIDTH.has(shelfCode) ? null : SHELF_WIDTH_CM,
+        displayOrder: n,
         active: n <= spec.active,
       })
     }
@@ -127,5 +135,6 @@ function buildSessionShelves(sessions: MockSession[], shelves: MockShelf[]): Moc
 export function createSeedData(): MockData {
   const shelves = buildShelves()
   const sessions = [...scenarioSessions(), ...historySessions()]
-  return { shelves, sessions, sessionShelves: buildSessionShelves(sessions, shelves) }
+  const sessionShelves = buildSessionShelves(sessions, shelves)
+  return { shelves, sessions, sessionShelves, ...buildSeedAnalysis({ shelves, sessions, sessionShelves }) }
 }

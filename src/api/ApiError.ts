@@ -1,12 +1,14 @@
 import type { ErrorResponse, FieldError } from '@/types/scan/api'
 
-/** Backend ErrorCode 중 장서점검 A1에서 사용하는 코드 */
+/** Backend ErrorCode 중 장서점검 회차와 자동 분석 결과 조회에서 사용하는 코드 */
 export const ERROR_CODE = {
   INVALID_INPUT: 'COMMON_001',
   FORBIDDEN: 'COMMON_005',
   SCAN_SESSION_NOT_FOUND: 'SCAN_001',
   SCAN_SESSION_ALREADY_OPEN: 'SCAN_002',
   SCAN_NO_ACTIVE_SHELF: 'SCAN_003',
+  SCAN_SHELF_NOT_IN_SESSION: 'SCAN_007',
+  SCAN_OBSERVATION_NOT_FOUND: 'SCAN_008',
 } as const
 
 /** 상태 코드와 Backend 에러 코드를 함께 확인할 수 있는 API 오류. Mock과 이후 HTTP 구현이 같은 형태로 던진다. */

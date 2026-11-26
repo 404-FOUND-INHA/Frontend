@@ -32,16 +32,18 @@ function expectRejected(run: () => unknown, status: number, code: string): ApiEr
 function customData(overrides: Partial<MockData> = {}): MockData {
   return {
     shelves: [
-      { id: 1, shelfCode: 'X-01', zone: 'X', floorNo: 3, active: true },
-      { id: 2, shelfCode: 'X-02', zone: 'X', floorNo: 1, active: true },
-      { id: 3, shelfCode: 'X-03', zone: 'X', floorNo: 0, active: false }, // 비활성은 층 계산·등록에서 제외
-      { id: 4, shelfCode: 'N-01', zone: 'NOFLOOR', floorNo: null, active: true },
-      { id: 5, shelfCode: 'OFF-01', zone: 'OFF', floorNo: 2, active: false },
-      { id: 6, shelfCode: 'B-01', zone: '   ', floorNo: 2, active: true }, // 공백 zone은 자료실이 아님
-      { id: 7, shelfCode: 'U-01', zone: null, floorNo: 2, active: true }, // zone 없음
+      { id: 1, shelfCode: 'X-01', zone: 'X', floorNo: 3, widthCm: 90, displayOrder: 1, active: true },
+      { id: 2, shelfCode: 'X-02', zone: 'X', floorNo: 1, widthCm: 90, displayOrder: 2, active: true },
+      { id: 3, shelfCode: 'X-03', zone: 'X', floorNo: 0, widthCm: 90, displayOrder: 3, active: false }, // 비활성은 층 계산·등록에서 제외
+      { id: 4, shelfCode: 'N-01', zone: 'NOFLOOR', floorNo: null, widthCm: null, displayOrder: 1, active: true },
+      { id: 5, shelfCode: 'OFF-01', zone: 'OFF', floorNo: 2, widthCm: 90, displayOrder: 1, active: false },
+      { id: 6, shelfCode: 'B-01', zone: '   ', floorNo: 2, widthCm: 90, displayOrder: 1, active: true }, // 공백 zone은 자료실이 아님
+      { id: 7, shelfCode: 'U-01', zone: null, floorNo: 2, widthCm: 90, displayOrder: 1, active: true }, // zone 없음
     ],
     sessions: [],
     sessionShelves: [],
+    books: [],
+    observations: [],
     ...overrides,
   }
 }
