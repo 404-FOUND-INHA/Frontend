@@ -3,10 +3,12 @@ import Page from '@/components/common/Page'
 import { useScanSession } from '@/hooks/scan/useScanSession'
 import ScanAnalysisSection from './ScanAnalysisSection'
 import ScanProgressSteps from './ScanProgressSteps'
+import ScanReviewSection from './ScanReviewSection'
 import ScanSessionSummary from './ScanSessionSummary'
 import { showsAnalysis } from './scanAnalysisView'
 import { getDetailViewState, parseSessionId } from './scanDetailView'
 import { isFromList, scanPaths } from './scanPaths'
+import { showsReview } from './scanReviewView'
 import './scanDetail.css'
 
 const BODY_MESSAGE = {
@@ -16,7 +18,7 @@ const BODY_MESSAGE = {
   error: '회차 정보를 불러오지 못했습니다',
 } as const
 
-// 장서점검 회차 상세(기본 정보, 처리 단계, 자동 분석 결과). 검토 현황 등은 이후 이슈에서 이 본문 아래에 섹션으로 추가한다.
+// 장서점검 회차 상세(기본 정보, 처리 단계, 자동 분석 결과, 사서 검토 현황과 회차 확정). 최종 결과 등은 이후 이슈에서 이 본문 아래에 추가한다.
 export default function ScanDetailPage() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -76,6 +78,8 @@ export default function ScanDetailPage() {
             <ScanSessionSummary session={query.data} />
             <ScanProgressSteps status={query.data.status} />
             {showsAnalysis(query.data.status) && <ScanAnalysisSection sessionId={query.data.id} />}
+            {/* key: 다른 회차로 바뀌면 모달의 열림 상태와 확정 오류를 이어받지 않는다. */}
+            {showsReview(query.data.status) && <ScanReviewSection key={query.data.id} session={query.data} />}
           </>
         )}
       </div>

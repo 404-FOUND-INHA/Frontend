@@ -1,0 +1,80 @@
+/* 회차 상세의 사서 검토 현황과 회차 확정. 클래스는 scan- 접두어만 쓴다. 다시 시도 버튼·오류 안내는 scanDetail.css를 함께 쓴다. */
+
+.scan-review { padding-top: 24px; }
+
+/* 검토 현황 카드 (시안 PNG 기준) */
+.scan-review-card { padding: 16px; border: 1px solid var(--app-border); border-radius: 12px; background: #fff; box-shadow: 0 1px 3px rgb(17 24 39 / 0.06); }
+.scan-review-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; }
+.scan-review-title { margin: 0; font-size: 16px; font-weight: 700; color: var(--app-text); }
+.scan-review-fraction { margin: 0; font-size: 16px; font-weight: 700; color: var(--app-primary); }
+.scan-review-bar { height: 8px; margin-top: 14px; overflow: hidden; border-radius: 4px; background: #eff6ff; }
+.scan-review-bar span { display: block; height: 100%; border-radius: 4px; background: var(--app-primary); }
+.scan-review-none { margin: 12px 0 0; font-size: 14px; color: #4b5563; }
+.scan-review-counts { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; margin-top: 12px; font-size: 13px; color: #6b7280; }
+.scan-review-done { font-weight: 700; color: var(--app-primary); }
+.scan-review-state { display: flex; flex-direction: column; align-items: center; gap: 12px; margin: 0; padding: 20px 0 8px; font-size: 14px; color: #6b7280; text-align: center; }
+.scan-review-state p { margin: 0; }
+
+/* 본문의 큰 버튼 */
+.scan-layout-btn,
+.scan-finalize-btn {
+  width: 100%;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 12px;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  -webkit-tap-highlight-color: transparent;
+}
+/* 준비 중: 누를 수 없는 상태로 보이도록 옅은 색을 쓴다 */
+.scan-layout-btn { margin-top: 24px; border: 1px solid #dbeafe; background: var(--app-tab-active-bg); color: #64748b; cursor: not-allowed; }
+.scan-layout-soon { padding: 1px 8px; border: 1px solid #cbd5e1; border-radius: 999px; background: #fff; font-size: 11px; line-height: 1.6; color: #475569; }
+.scan-layout-btn svg { flex: none; }
+
+.scan-finalize { padding-top: 12px; }
+.scan-finalize-btn { background: var(--app-primary-strong); color: #fff; cursor: pointer; }
+.scan-finalize-btn:disabled { background: #e5e7eb; color: #9ca3af; cursor: not-allowed; }
+.scan-finalize-btn:focus-visible { outline: 2px solid var(--app-primary); outline-offset: 2px; }
+.scan-finalize-guide { margin: 12px 0 8px; font-size: 13px; line-height: 1.45; color: #6b7280; text-align: center; }
+
+/* 확인 모달. 기본 dialog는 화면(뷰포트) 가운데에 열리고, 낮은 화면에서는 모달 안에서 스크롤한다. */
+.scan-dialog {
+  width: min(340px, calc(100% - 40px));
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 24px;
+  border: 0;
+  border-radius: 16px;
+  background: #fff;
+  color: var(--app-text);
+  text-align: center;
+  box-shadow: 0 20px 40px rgb(0 0 0 / 0.2);
+}
+.scan-dialog::backdrop { background: rgb(0 0 0 / 0.5); }
+/* 한글은 단어 중간에서 줄을 바꾸지 않고, 띄어쓰기 없는 긴 회차명만 잘라 넘긴다 */
+.scan-dialog p { margin: 0; word-break: keep-all; overflow-wrap: anywhere; }
+.scan-dialog .scan-dialog-title { margin: 0; font-size: 18px; font-weight: 700; line-height: 1.4; letter-spacing: 0; color: var(--app-text); }
+.scan-dialog .scan-dialog-session { display: inline-block; margin-top: 8px; padding: 2px 10px; border-radius: 14px; background: var(--app-tab-active-bg); font-size: 13px; font-weight: 700; color: var(--app-primary); }
+.scan-dialog .scan-dialog-guide { margin-top: 14px; font-size: 15px; font-weight: 700; }
+.scan-dialog .scan-dialog-question { margin-top: 6px; font-size: 13px; color: #4b5563; }
+.scan-dialog-summary { margin: 16px 0 0; padding: 12px 14px; border: 1px solid #f3f4f6; border-radius: 10px; background: #f9fafb; font-size: 13px; }
+.scan-dialog-summary div { display: flex; justify-content: space-between; gap: 12px; }
+.scan-dialog-summary div + div { margin-top: 6px; }
+.scan-dialog-summary dt { color: #6b7280; }
+.scan-dialog-summary dd { margin: 0; font-weight: 700; color: var(--app-text); }
+.scan-dialog-summary .scan-dialog-remaining { color: var(--app-primary); }
+.scan-dialog .scan-dialog-note { margin-top: 14px; font-size: 12px; line-height: 1.5; color: #6b7280; }
+.scan-dialog .scan-dialog-error { margin-top: 12px; padding: 10px 12px; border-radius: 8px; background: #fef2f2; font-size: 13px; line-height: 1.45; color: #b91c1c; }
+.scan-dialog-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 20px; }
+.scan-dialog-btn { min-height: 44px; border: 0; border-radius: 10px; font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.scan-dialog-btn--cancel { background: #f3f4f6; color: #374151; }
+.scan-dialog-btn--confirm { background: var(--app-primary-strong); color: #fff; }
+.scan-dialog-btn:disabled { opacity: 0.5; cursor: default; }
+.scan-dialog-btn:focus-visible { outline: 2px solid var(--app-primary); outline-offset: 2px; }
