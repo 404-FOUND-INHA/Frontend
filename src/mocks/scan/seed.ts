@@ -1,6 +1,7 @@
+import { collectFindings, reflectFindings, replaceBooks } from './finalize'
 import { buildSeedAnalysis } from './seedAnalysis'
-import { buildSeedReviews } from './seedReview'
-import type { MockData, MockScanShelfStatus, MockSession, MockSessionShelf, MockShelf } from './types'
+import { SEED_LIBRARIAN, buildSeedReviews } from './seedReview'
+import type { MockBook, MockData, MockScanShelfStatus, MockSession, MockSessionShelf, MockShelf } from './types'
 
 // 결정적(deterministic) 시드 데이터. 호출할 때마다 새 객체를 만들어 테스트와 화면 확인을 반복 가능하게 한다.
 // 시안의 예시 값과 Backend 규칙(자료실당 미완료 회차 1개 등)이 충돌하면 규칙과 정합성을 우선한다.
@@ -24,9 +25,9 @@ export const SEED_SESSION_IDS = {
   REVIEW_PARTIAL: 2, // REVIEW, 필수 검토 3건 중 2건 완료
   REVIEW_COMPLETE: 3, // REVIEW, 필수 검토 7건 모두 완료
   REVIEW_NONE: 4, // REVIEW, 필수 검토 0건 (관측도 0건)
-  COMPLETED_PENDING: 5, // COMPLETED, 필수 검토 1건
-  COMPLETED_READY: 6, // COMPLETED, 필수 검토 2건
-  COMPLETED_EMPTY: 7, // COMPLETED, 필수 검토 0건 (이상 없음)
+  COMPLETED_LATEST: 5, // COMPLETED(가장 최근), 필수 검토 1건
+  COMPLETED_PREVIOUS: 6, // COMPLETED, 필수 검토 2건
+  COMPLETED_CLEAN: 7, // COMPLETED, 필수 검토 0건 (이상 없음)
 } as const
 
 const HISTORY_FIRST_ID = 100
@@ -76,7 +77,8 @@ function buildShelves(): MockShelf[] {
 }
 
 function scenarioSessions(): MockSession[] {
-  const base = { plannedStartDate: null, finalizedAt: null }
+  const base = { plannedStartDate: null, finalizedAt: null, finalizedBy: null }
+  const finalizedBy = SEED_LIBRARIAN.id
   return [
     // 진행 중(Vision 결과 대기): 시안 목록 첫 카드
     { ...base, id: 1, sessionName: '2026년 2학기 정기 장서점검', status: 'IN_PROGRESS', zone: SEED_ZONES.HUMANITIES, plannedStartDate: '2026-11-02', startedAt: '2026-11-02T09:00:00', createdAt: '2026-11-02T09:00:00' },
@@ -84,9 +86,9 @@ function scenarioSessions(): MockSession[] {
     { ...base, id: 3, sessionName: '2026년 2학기 정기 장서점검', status: 'REVIEW', zone: SEED_ZONES.SCIENCE, startedAt: '2026-11-04T09:00:00', createdAt: '2026-11-04T09:00:00' },
     { ...base, id: 4, sessionName: '2026년 2학기 정기 장서점검', status: 'REVIEW', zone: SEED_ZONES.PERIODICALS, startedAt: '2026-11-05T09:00:00', createdAt: '2026-11-05T09:00:00' },
     // 완료: 시안 목록의 완료 카드 3개 (2026.06.20 / 2025.12.15 / 2025.06.18 완료)
-    { ...base, id: 5, sessionName: '2026년 1학기 정기 장서점검', status: 'COMPLETED', zone: SEED_ZONES.HUMANITIES, plannedStartDate: '2026-06-08', startedAt: '2026-06-08T09:00:00', finalizedAt: '2026-06-20T17:30:00', createdAt: '2026-06-08T09:00:00' },
-    { ...base, id: 6, sessionName: '2025년 2학기 정기 장서점검', status: 'COMPLETED', zone: SEED_ZONES.HUMANITIES, plannedStartDate: '2025-12-01', startedAt: '2025-12-01T09:00:00', finalizedAt: '2025-12-15T17:30:00', createdAt: '2025-12-01T09:00:00' },
-    { ...base, id: 7, sessionName: '2025년 1학기 정기 장서점검', status: 'COMPLETED', zone: SEED_ZONES.HUMANITIES, plannedStartDate: '2025-06-02', startedAt: '2025-06-02T09:00:00', finalizedAt: '2025-06-18T17:30:00', createdAt: '2025-06-02T09:00:00' },
+    { ...base, id: 5, sessionName: '2026년 1학기 정기 장서점검', status: 'COMPLETED', zone: SEED_ZONES.HUMANITIES, plannedStartDate: '2026-06-08', startedAt: '2026-06-08T09:00:00', finalizedAt: '2026-06-20T17:30:00', finalizedBy, createdAt: '2026-06-08T09:00:00' },
+    { ...base, id: 6, sessionName: '2025년 2학기 정기 장서점검', status: 'COMPLETED', zone: SEED_ZONES.HUMANITIES, plannedStartDate: '2025-12-01', startedAt: '2025-12-01T09:00:00', finalizedAt: '2025-12-15T17:30:00', finalizedBy, createdAt: '2025-12-01T09:00:00' },
+    { ...base, id: 7, sessionName: '2025년 1학기 정기 장서점검', status: 'COMPLETED', zone: SEED_ZONES.HUMANITIES, plannedStartDate: '2025-06-02', startedAt: '2025-06-02T09:00:00', finalizedAt: '2025-06-18T17:30:00', finalizedBy, createdAt: '2025-06-02T09:00:00' },
   ]
 }
 
@@ -116,6 +118,7 @@ function historySessions(): MockSession[] {
         plannedStartDate: startDate,
         startedAt: `${startDate}T09:00:00`,
         finalizedAt: `${endDate}T17:30:00`,
+        finalizedBy: SEED_LIBRARIAN.id,
         createdAt: `${startDate}T09:00:00`,
       })
     }
@@ -133,10 +136,62 @@ function buildSessionShelves(sessions: MockSession[], shelves: MockShelf[]): Moc
   })
 }
 
+/**
+ * 회차 확정의 후보 산출 기준을 확인하는 도서. 회차 3의 첫 서가(C-01)에 있어야 하지만 어느 회차에도 관측되지 않는다.
+ * 대출 중·분실 처리·제적은 후보에서 제외되고, 소재불명·훼손·예약은 후보가 된다.
+ */
+const UNOBSERVED_BOOKS: Pick<MockBook, 'title' | 'lifecycleStatus' | 'loanStatus'>[] = [
+  { title: '대출 중인 미관측 도서', lifecycleStatus: 'NORMAL', loanStatus: 'ON_LOAN' },
+  { title: '분실 처리된 미관측 도서', lifecycleStatus: 'NORMAL', loanStatus: 'LOST' },
+  { title: '제적된 미관측 도서', lifecycleStatus: 'DISPOSED', loanStatus: 'AVAILABLE' },
+  { title: '소재불명인 미관측 도서', lifecycleStatus: 'MISSING', loanStatus: 'AVAILABLE' },
+  { title: '훼손된 미관측 도서', lifecycleStatus: 'DAMAGED', loanStatus: 'AVAILABLE' },
+  { title: '예약된 미관측 도서', lifecycleStatus: 'NORMAL', loanStatus: 'RESERVED' },
+]
+const UNOBSERVED_SHELF_CODE = 'C-01'
+
+function unobservedBooks(shelves: MockShelf[], firstId: number): MockBook[] {
+  const shelf = shelves.find((s) => s.shelfCode === UNOBSERVED_SHELF_CODE) as MockShelf
+  return UNOBSERVED_BOOKS.map((overrides, index) => {
+    const id = firstId + index
+    return {
+      id,
+      registrationNo: `EM${String(id).padStart(7, '0')}`,
+      callNumber: `813.7 미${id}`,
+      copyNumber: null,
+      expectedShelfId: shelf.id,
+      currentShelfId: shelf.id,
+      widthCm: 2.1,
+      ...overrides,
+    }
+  })
+}
+
+/** 이미 확정한 시드 회차의 확인 결과를 확정 순서대로, 회차 확정과 같은 규칙으로 도서 원장에 반영한다. */
+function reflectCompletedSessions(data: MockData): MockBook[] {
+  return data.sessions
+    .filter((s) => s.status === 'COMPLETED')
+    .sort((a, b) => (a.finalizedAt as string).localeCompare(b.finalizedAt as string) || a.id - b.id)
+    .reduce((books, session) => replaceBooks(books, reflectFindings(books, collectFindings(data, session.id)).books), data.books)
+}
+
 export function createSeedData(): MockData {
   const shelves = buildShelves()
   const sessions = [...scenarioSessions(), ...historySessions()]
   const sessionShelves = buildSessionShelves(sessions, shelves)
   const { books, observations } = buildSeedAnalysis({ shelves, sessions, sessionShelves })
-  return { shelves, sessions, sessionShelves, observations, ...buildSeedReviews({ sessions, books, observations }) }
+  const reviewed = buildSeedReviews({ sessions, books, observations })
+  // 이미 확정한 시드 회차의 소재불명 후보는 만들지 않는다. 당시 원장을 알 수 없어 지금 원장으로 계산하면 의미가 없다.
+  // 즉 이 회차들의 빈 후보는 "산출 결과 0건"이 아니라 "Mock 미구성"이며, 과거 후보는 Issue #6에서 명시적 시드로 추가한다.
+  const data: MockData = {
+    shelves,
+    sessions,
+    sessionShelves,
+    observations,
+    users: reviewed.users,
+    reviews: reviewed.reviews,
+    books: [...reviewed.books, ...unobservedBooks(shelves, reviewed.books.length + 1)],
+    missingCandidates: [],
+  }
+  return { ...data, books: reflectCompletedSessions(data) }
 }

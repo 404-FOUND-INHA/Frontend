@@ -45,6 +45,8 @@ const book = (id: number, overrides: Partial<MockBook> = {}): MockBook => ({
   copyNumber: null,
   lifecycleStatus: 'NORMAL',
   expectedShelfId: 1,
+  currentShelfId: 1,
+  loanStatus: 'AVAILABLE',
   widthCm: 2,
   ...overrides,
 })
@@ -86,6 +88,7 @@ function customData(observations: MockObservation[] = defaultObservations()): Mo
     plannedStartDate: null,
     startedAt: '2026-11-01T09:00:00',
     finalizedAt: null,
+    finalizedBy: null,
     createdAt: '2026-11-01T09:00:00',
   })
   return {
@@ -111,6 +114,7 @@ function customData(observations: MockObservation[] = defaultObservations()): Mo
     observations,
     users: [],
     reviews: [],
+    missingCandidates: [],
   }
 }
 
@@ -167,9 +171,9 @@ describe('기본 시드의 분석 결과', () => {
     [SEED_SESSION_IDS.REVIEW_PARTIAL, counts(128, 120, 5, 3)],
     [SEED_SESSION_IDS.REVIEW_COMPLETE, counts(96, 83, 6, 7)],
     [SEED_SESSION_IDS.REVIEW_NONE, counts(0, 0, 0, 0)],
-    [SEED_SESSION_IDS.COMPLETED_PENDING, counts(112, 108, 3, 1)],
-    [SEED_SESSION_IDS.COMPLETED_READY, counts(104, 99, 3, 2)],
-    [SEED_SESSION_IDS.COMPLETED_EMPTY, counts(90, 90, 0, 0)],
+    [SEED_SESSION_IDS.COMPLETED_LATEST, counts(112, 108, 3, 1)],
+    [SEED_SESSION_IDS.COMPLETED_PREVIOUS, counts(104, 99, 3, 2)],
+    [SEED_SESSION_IDS.COMPLETED_CLEAN, counts(90, 90, 0, 0)],
   ])('회차 %i의 건수', (id, expected) => {
     expect(seedStore().getAnalysis(id).counts).toEqual(expected)
   })
@@ -673,7 +677,7 @@ describe('분석 데이터 정합성 검사', () => {
 describe('시각 형식', () => {
   const withTime = (time: string) => {
     const data = customData([unidentified(1, 'OCR_FAILED', { detectedAt: time, receivedAt: time })])
-    Object.assign(data.sessions[0], { status: 'COMPLETED', startedAt: time, createdAt: time, finalizedAt: time })
+    Object.assign(data.sessions[0], { status: 'COMPLETED', startedAt: time, createdAt: time, finalizedAt: time, finalizedBy: 1 })
     // 확정된 회차에는 미검토 관측이 없어야 한다.
     data.users.push({ id: 1, name: '사서' })
     data.reviews.push({

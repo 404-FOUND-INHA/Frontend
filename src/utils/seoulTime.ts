@@ -30,3 +30,13 @@ export function seoulDateTime(epochMs: number): string {
   const p = seoulParts(epochMs)
   return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}:${p.second}`
 }
+
+/**
+ * 밀리초까지 담은 서울 기준 시각. 밀리초가 0이면 seoulDateTime처럼 소수 초를 쓰지 않는다.
+ * UTC 오프셋에는 밀리초가 없으므로 밀리초 값은 UTC와 같다.
+ */
+export function seoulDateTimeWithMillis(epochMs: number): string {
+  const millis = new Date(epochMs).getUTCMilliseconds()
+  const dateTime = seoulDateTime(epochMs)
+  return millis === 0 ? dateTime : `${dateTime}.${String(millis).padStart(3, '0')}`
+}

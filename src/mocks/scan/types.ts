@@ -1,5 +1,5 @@
 // Mock 저장소 내부 모델. 실제 API 계약이 아니라 DB 테이블(shelf, scan_session, scan_session_shelf,
-// book, book_observation, observation_match_candidate, review, app_user)을 단순화한 것이다.
+// book, book_observation, observation_match_candidate, review, app_user, missing_candidate)을 단순화한 것이다.
 import type {
   BookLifecycleStatus,
   CandidateReason,
@@ -30,6 +30,8 @@ export interface MockSession {
   plannedStartDate: string | null
   startedAt: string | null
   finalizedAt: string | null
+  /** 회차를 확정한 사용자. finalizedAt과 함께 COMPLETED에만 있다. 회차 조회 응답에는 담지 않는다. */
+  finalizedBy: number | null
   createdAt: string
 }
 
@@ -45,7 +47,10 @@ export interface MockSessionShelf {
   scanStatus: MockScanShelfStatus
 }
 
-/** 도서 원장 */
+/** 대출 상태 (Backend LoanStatus). 소재불명 후보에서 대출 중과 분실 처리 도서를 제외하는 데 쓴다. */
+export type MockLoanStatus = 'AVAILABLE' | 'ON_LOAN' | 'RESERVED' | 'LOST'
+
+/** 도서 원장. currentShelfId와 loanStatus는 조회 응답에 담지 않는다. */
 export interface MockBook {
   id: number
   registrationNo: string
@@ -53,7 +58,11 @@ export interface MockBook {
   callNumber: string
   copyNumber: string | null
   lifecycleStatus: BookLifecycleStatus
+  /** 정상 배치 서가. 회차를 확정해도 바뀌지 않는다. */
   expectedShelfId: number | null
+  /** 마지막으로 확인한 서가. 회차를 확정하면 관측 서가가 된다. */
+  currentShelfId: number | null
+  loanStatus: MockLoanStatus
   widthCm: number | null
 }
 
@@ -108,6 +117,19 @@ export interface MockReview {
   reviewedAt: string
 }
 
+/**
+ * 회차를 확정할 때 점검에서 발견되지 않은 도서(소재불명 후보). 회차·도서당 최대 1건이다.
+ * 확정 처리에 필요한 값만 둔다. 확인 상태, 연속 미발견 횟수, 확인 기록과 조회는 Issue #6에서 추가한다.
+ */
+export interface MockMissingCandidate {
+  id: number
+  sessionId: number
+  bookId: number
+  expectedShelfId: number
+  /** 회차 확정 시각 */
+  createdAt: string
+}
+
 export interface MockData {
   shelves: MockShelf[]
   sessions: MockSession[]
@@ -116,4 +138,5 @@ export interface MockData {
   observations: MockObservation[]
   users: MockUser[]
   reviews: MockReview[]
+  missingCandidates: MockMissingCandidate[]
 }

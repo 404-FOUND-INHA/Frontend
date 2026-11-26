@@ -46,6 +46,7 @@ function customData(overrides: Partial<MockData> = {}): MockData {
     observations: [],
     users: [],
     reviews: [],
+    missingCandidates: [],
     ...overrides,
   }
 }
@@ -142,6 +143,7 @@ describe('회차 생성', () => {
           plannedStartDate: null,
           startedAt: '2026-11-01T09:00:00',
           finalizedAt: null,
+          finalizedBy: null,
           createdAt: '2026-11-01T09:00:00',
         },
       ],
@@ -452,7 +454,7 @@ describe('회차 상세 조회', () => {
     const store = newStore()
     expect(store.getSession(SEED_SESSION_IDS.VISION_WAITING)).toMatchObject({ status: 'IN_PROGRESS', processingStage: 'VISION_WAITING', finalizedAt: null })
     expect(store.getSession(SEED_SESSION_IDS.REVIEW_PARTIAL)).toMatchObject({ status: 'REVIEW', processingStage: 'ANALYSIS_DONE', finalizedAt: null })
-    expect(store.getSession(SEED_SESSION_IDS.COMPLETED_PENDING)).toMatchObject({
+    expect(store.getSession(SEED_SESSION_IDS.COMPLETED_LATEST)).toMatchObject({
       status: 'COMPLETED',
       processingStage: 'ANALYSIS_DONE',
       finalizedAt: '2026-06-20T17:30:00',

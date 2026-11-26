@@ -5,6 +5,7 @@ import type { ReviewListParams, ReviewSummary } from '@/types/scan/review'
 import { findInvariantViolations, findJudgementViolations } from './invariants'
 import { SEED_SESSION_IDS, SEED_ZONES, createSeedData } from './seed'
 import { buildSeedAnalysis } from './seedAnalysis'
+import { buildSeedReviews } from './seedReview'
 import { createScanStore, type ScanStore } from './store'
 import type { MockBook, MockData, MockObservation, MockReview } from './types'
 
@@ -44,6 +45,8 @@ const book = (id: number, overrides: Partial<MockBook> = {}): MockBook => ({
   copyNumber: null,
   lifecycleStatus: 'NORMAL',
   expectedShelfId: 1,
+  currentShelfId: 1,
+  loanStatus: 'AVAILABLE',
   widthCm: 2,
   ...overrides,
 })
@@ -53,7 +56,7 @@ describe('정합성 검사의 시각 비교', () => {
   /** 확정된 회차의 검토 1건. 수신·검토·확정 시각(시:분:초)을 서로 다르게 지정할 수 있다 */
   const completedWith = ({ received = '11:00:00', reviewed = '14:00:00', finalized = '17:30:00' }) => {
     const data = customData([required(1, { receivedAt: DAY + received })], [review(1, 1, { reviewedAt: DAY + reviewed })])
-    Object.assign(data.sessions[0], { status: 'COMPLETED', finalizedAt: DAY + finalized })
+    Object.assign(data.sessions[0], { status: 'COMPLETED', finalizedAt: DAY + finalized, finalizedBy: 7 })
     return data
   }
 
@@ -181,6 +184,7 @@ function customData(observations: MockObservation[], reviews: MockReview[] = [])
     plannedStartDate: null,
     startedAt: '2026-11-01T09:00:00',
     finalizedAt: null,
+    finalizedBy: null,
     createdAt: '2026-11-01T09:00:00',
   })
   return {
@@ -203,6 +207,7 @@ function customData(observations: MockObservation[], reviews: MockReview[] = [])
     observations,
     users: [{ id: 7, name: '검토 사서' }],
     reviews,
+    missingCandidates: [],
   }
 }
 
@@ -214,9 +219,9 @@ describe('검토 시드', () => {
     [SEED_SESSION_IDS.REVIEW_PARTIAL, summary(3, 2, 1)],
     [SEED_SESSION_IDS.REVIEW_COMPLETE, summary(7, 7, 0)],
     [SEED_SESSION_IDS.REVIEW_NONE, summary(0, 0, 0)],
-    [SEED_SESSION_IDS.COMPLETED_PENDING, summary(1, 1, 0)],
-    [SEED_SESSION_IDS.COMPLETED_READY, summary(2, 2, 0)],
-    [SEED_SESSION_IDS.COMPLETED_EMPTY, summary(0, 0, 0)],
+    [SEED_SESSION_IDS.COMPLETED_LATEST, summary(1, 1, 0)],
+    [SEED_SESSION_IDS.COMPLETED_PREVIOUS, summary(2, 2, 0)],
+    [SEED_SESSION_IDS.COMPLETED_CLEAN, summary(0, 0, 0)],
   ])('회차 %i의 검토 현황', (id, expected) => {
     expect(seedStore().getReviews(id).summary).toEqual(expected)
   })
@@ -276,22 +281,24 @@ describe('검토 시드', () => {
   })
 
   it('자동 분석 시드의 관측은 바꾸지 않고, 도서는 소재불명 1권 지정과 검토용 도서 추가만 한다', () => {
-    const data = createSeedData()
-    const analysis = buildSeedAnalysis(data)
-    expect(data.observations).toEqual(analysis.observations)
+    const seed = createSeedData()
+    const analysis = buildSeedAnalysis(seed)
+    expect(seed.observations).toEqual(analysis.observations)
+    // 도서는 검토 시드 단계의 결과로 확인한다. 이후의 원장 단계(미관측 도서, 확인 서가)는 finalize.test.ts가 확인한다.
+    const data = buildSeedReviews({ sessions: seed.sessions, ...analysis })
 
     const original = data.books.slice(0, analysis.books.length)
     const changed = original.filter((b, i) => JSON.stringify(b) !== JSON.stringify(analysis.books[i]))
     expect(changed).toHaveLength(1)
     expect(changed[0]).toEqual({ ...analysis.books[changed[0].id - 1], lifecycleStatus: 'MISSING' })
     // 소재불명으로 둔 도서는 회차 2의 정상 관측에만 나온다.
-    const seen = data.observations.filter((o) => o.bookId === changed[0].id)
+    const seen = seed.observations.filter((o) => o.bookId === changed[0].id)
     expect(seen.map((o) => [o.sessionId, o.analysisStatus])).toEqual([[2, 'NORMAL']])
 
     const added = data.books.slice(analysis.books.length)
     expect(added).toHaveLength(1)
     expect(added[0].lifecycleStatus).toBe('MISSING')
-    expect(data.observations.some((o) => o.bookId === added[0].id)).toBe(false)
+    expect(seed.observations.some((o) => o.bookId === added[0].id)).toBe(false)
     expect(data.reviews.filter((r) => r.finalBookId === added[0].id)).toHaveLength(1)
   })
 
@@ -532,7 +539,7 @@ describe('검토 정합성 검사', () => {
       [identified(1, 3, 2), review(2, 4), review(3, 5)],
     )
   const complete = (d: MockData, id: number) =>
-    Object.assign(d.sessions[id - 1], { status: 'COMPLETED', finalizedAt: '2026-11-02T17:00:00' })
+    Object.assign(d.sessions[id - 1], { status: 'COMPLETED', finalizedAt: '2026-11-02T17:00:00', finalizedBy: 7 })
 
   it('규칙을 지키는 데이터는 위반이 없다 (확정된 회차 포함)', () => {
     const valid = data()

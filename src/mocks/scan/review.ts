@@ -64,6 +64,11 @@ function summarize(rows: readonly { review: MockReview | undefined }[]): ReviewS
   return { totalRequired: rows.length, reviewed, remaining: rows.length - reviewed }
 }
 
+/** 회차 전체의 검토 진행 현황 */
+export function reviewSummaryOf(data: MockData, sessionId: number): ReviewSummary {
+  return summarize(requiredReviews(data, sessionId))
+}
+
 export function buildReviewList(data: MockData, sessionId: number, query: ReviewQuery): ReviewListResponse {
   const rows = requiredReviews(data, sessionId)
   const filtered = rows.filter(

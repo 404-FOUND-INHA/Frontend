@@ -1,26 +1,13 @@
 import type { ObservationStatusReason } from '@/types/scan/analysis'
-import { isValidIsoDate } from '@/utils/calendarDate'
+import { timeKey } from './localDateTime'
 import { OPEN_STATUSES } from './store'
 import type { MockBook, MockData, MockObservation, MockReview } from './types'
 
-/** 타임존 없는 ISO 날짜시간(Backend LocalDateTime). 소수 초는 DB 정밀도인 마이크로초(6자리)까지다. */
-const DATE_TIME = /^(\d{4}-\d{2}-\d{2})T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.(\d{1,6}))?$/
 const MAX_CANDIDATES = 3
 const MAX_COMMENT_LENGTH = 1000
 
 /** 도서를 식별하지 못한 사유. 그 외(정상 포함)는 식별한 도서와 신뢰도가 있어야 한다. */
 const UNIDENTIFIED_REASONS: readonly ObservationStatusReason[] = ['OCR_FAILED', 'NO_MATCH', 'AMBIGUOUS_MATCH']
-
-/**
- * 시각 비교용 값. 형식이 다르거나 존재하지 않는 날짜·시각이면 null이다.
- * 소수 초를 6자리로 맞추므로 같은 시각은 표기가 달라도 같은 문자열이 되고, 문자열 순서가 시간 순서가 된다.
- * Date로 바꾸면 마이크로초가 사라지므로 문자열로 비교한다.
- */
-function timeKey(value: string): string | null {
-  const match = DATE_TIME.exec(value)
-  if (!match || !isValidIsoDate(match[1])) return null
-  return `${value.slice(0, 19)}.${(match[2] ?? '').padEnd(6, '0')}`
-}
 
 /**
  * 저장 데이터 자체가 Backend 규칙과 어긋난 지점을 문자열로 돌려준다. 비어 있으면 정합성이 유지된 것이다. (테스트에서 사용)
@@ -74,7 +61,12 @@ export function findInvariantViolations(data: MockData): string[] {
     pairs.add(key)
     if (!sessionsById.has(ss.sessionId)) violations.push(`존재하지 않는 회차 ${ss.sessionId}의 서가 관계`)
   }
-  return [...violations, ...findObservationViolations(data), ...findReviewViolations(data)]
+  return [
+    ...violations,
+    ...findObservationViolations(data),
+    ...findReviewViolations(data),
+    ...findFinalizationViolations(data),
+  ]
 }
 
 /** 도서와 관측(자동 분석 결과)의 참조 관계와 저장된 판정의 일관성 */
@@ -89,6 +81,9 @@ function findObservationViolations(data: MockData): string[] {
   for (const book of data.books) {
     if (book.expectedShelfId !== null && !shelfIds.has(book.expectedShelfId)) {
       violations.push(`도서 ${book.id}: 존재하지 않는 예상 서가 ${book.expectedShelfId}`)
+    }
+    if (book.currentShelfId !== null && !shelfIds.has(book.currentShelfId)) {
+      violations.push(`도서 ${book.id}: 존재하지 않는 확인 서가 ${book.currentShelfId}`)
     }
   }
 
@@ -229,6 +224,69 @@ function findReviewViolations(data: MockData): string[] {
   return violations
 }
 
+/** 확정 정보(확정자, 확정 시각)와 소재불명 후보의 참조 관계 */
+function findFinalizationViolations(data: MockData): string[] {
+  const violations: string[] = []
+  const sessionsById = new Map(data.sessions.map((s) => [s.id, s]))
+  const userIds = new Set(data.users.map((u) => u.id))
+  const bookIds = new Set(data.books.map((b) => b.id))
+
+  for (const session of data.sessions) {
+    const report = (message: string) => violations.push(`회차 ${session.id}: ${message}`)
+    if ((session.finalizedBy !== null) !== (session.status === 'COMPLETED')) report('finalizedBy는 COMPLETED에만 있어야 함')
+    if (session.finalizedBy !== null && !userIds.has(session.finalizedBy)) report(`존재하지 않는 확정자 ${session.finalizedBy}`)
+    const finalizedAt = session.finalizedAt === null ? null : timeKey(session.finalizedAt)
+    if (finalizedAt === null) continue
+    // 형식이 잘못된 시각은 findInvariantViolations가 알리므로 전후 비교에서 제외한다.
+    const isAfterFinalization = (time: string | null) => time !== null && (timeKey(time) ?? '') > finalizedAt
+    if (isAfterFinalization(session.createdAt)) report('생성 전에 확정할 수 없음')
+    if (isAfterFinalization(session.startedAt)) report('시작 전에 확정할 수 없음')
+    const receivedLater = data.observations.some(
+      (o) => o.sessionId === session.id && (timeKey(o.receivedAt) ?? '') > finalizedAt,
+    )
+    if (receivedLater) report('결과 수신 전에 확정할 수 없음')
+  }
+
+  if (new Set(data.missingCandidates.map((c) => c.id)).size !== data.missingCandidates.length) {
+    violations.push('후보 ID가 중복됨')
+  }
+  /** '회차:도서' → 그 회차에서 위치가 확인된 도서 */
+  const found = new Set(
+    data.observations
+      .filter((o) => o.bookId !== null && RESOLVED_STATUSES.includes(o.analysisStatus))
+      .map((o) => `${o.sessionId}:${o.bookId}`),
+  )
+  const observationsById = new Map(data.observations.map((o) => [o.id, o]))
+  for (const review of data.reviews) {
+    const observation = observationsById.get(review.observationId)
+    if (observation && review.finalBookId !== null) found.add(`${observation.sessionId}:${review.finalBookId}`)
+  }
+  const receivedShelves = new Set(
+    data.sessionShelves.filter((ss) => ss.scanStatus === 'RESULT_RECEIVED').map((ss) => `${ss.sessionId}:${ss.shelfId}`),
+  )
+  const pairs = new Set<string>()
+  for (const candidate of data.missingCandidates) {
+    const report = (message: string) => violations.push(`후보 ${candidate.id}: ${message}`)
+    const key = `${candidate.sessionId}:${candidate.bookId}`
+    if (pairs.has(key)) report('같은 회차에 도서의 후보가 중복됨')
+    pairs.add(key)
+    if (!bookIds.has(candidate.bookId)) report(`존재하지 않는 도서 ${candidate.bookId}`)
+    if (found.has(key)) report(`이 회차에서 발견한 도서 ${candidate.bookId}`)
+    if (!receivedShelves.has(`${candidate.sessionId}:${candidate.expectedShelfId}`)) {
+      report('결과를 수신한 대상 서가의 도서가 아님')
+    }
+    const createdAt = timeKey(candidate.createdAt)
+    if (createdAt === null) report('createdAt 형식 오류')
+    const session = sessionsById.get(candidate.sessionId)
+    const finalizedAt = session?.finalizedAt ? timeKey(session.finalizedAt) : null
+    if (session?.status !== 'COMPLETED') report('확정한 회차에만 있어야 함')
+    else if (createdAt !== null && finalizedAt !== null && createdAt !== finalizedAt) {
+      report('createdAt은 회차의 확정 시각이어야 함')
+    }
+  }
+  return violations
+}
+
 /** 조치, 확정 도서, 최종 판정의 조합 */
 function checkReviewDecision(review: MockReview, report: (message: string) => void): void {
   const { action, finalStatus, finalBookId } = review
@@ -242,8 +300,8 @@ function checkReviewDecision(review: MockReview, report: (message: string) => vo
 }
 
 /**
- * data.books가 분석·검토 당시의 원장이라는 전제에서, 도서를 식별한 관측의 사유가 판정 우선순위대로인지,
- * 도서를 확정한 검토의 판정이 예상 서가 비교와 맞는지 확인한다.
+ * data.books가 분석·검토·후보 산출 당시의 원장이라는 전제에서, 도서를 식별한 관측의 사유가 판정 우선순위대로인지,
+ * 도서를 확정한 검토의 판정이 예상 서가 비교와 맞는지, 소재불명 후보가 산출 기준에 맞는지 확인한다.
  * 갓 만든 시드나 테스트 데이터에만 사용한다. 이후에 원장이 바뀐 데이터에 어긋남이 생기는 것은 정상이다.
  */
 export function findJudgementViolations(data: MockData): string[] {
@@ -269,6 +327,14 @@ export function findJudgementViolations(data: MockData): string[] {
     if (review.finalStatus !== expected) {
       violations.push(`검토 ${review.id}: 최종 판정은 ${expected}여야 함 (현재 ${review.finalStatus})`)
     }
+  }
+  for (const candidate of data.missingCandidates) {
+    const book = booksById.get(candidate.bookId)
+    if (!book) continue
+    const report = (message: string) => violations.push(`후보 ${candidate.id}: ${message}`)
+    if (book.expectedShelfId !== candidate.expectedShelfId) report('도서의 예상 서가와 다름')
+    if (book.lifecycleStatus === 'DISPOSED') report('제적 도서는 후보가 아님')
+    if (book.loanStatus === 'ON_LOAN' || book.loanStatus === 'LOST') report('대출 중·분실 처리 도서는 후보가 아님')
   }
   return violations
 }

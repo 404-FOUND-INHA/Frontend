@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { seoulDate, seoulDateTime } from './seoulTime'
+import { seoulDate, seoulDateTime, seoulDateTimeWithMillis } from './seoulTime'
 
 describe('seoulDate / seoulDateTime', () => {
   it('UTC와 서울의 날짜가 다른 시각(UTC 15:00 이후)은 서울 날짜로 변환한다', () => {
@@ -20,5 +20,21 @@ describe('seoulDate / seoulDateTime', () => {
 
   it('UTC 기준 같은 날짜 안에서도 서울 시각 오프셋(+9)이 적용된다', () => {
     expect(seoulDateTime(Date.parse('2026-11-24T03:00:00Z'))).toBe('2026-11-24T12:00:00')
+  })
+})
+
+describe('seoulDateTimeWithMillis', () => {
+  it.each([
+    ['2026-11-24T03:00:00.900Z', '2026-11-24T12:00:00.900'],
+    ['2026-11-24T03:00:00.007Z', '2026-11-24T12:00:00.007'],
+    ['2026-11-24T03:00:00.000Z', '2026-11-24T12:00:00'],
+    ['2026-12-31T14:59:59.999Z', '2026-12-31T23:59:59.999'],
+    ['2026-12-31T15:00:00.001Z', '2027-01-01T00:00:00.001'],
+  ])('%s는 서울 %s이다', (utc, seoul) => {
+    expect(seoulDateTimeWithMillis(Date.parse(utc))).toBe(seoul)
+  })
+
+  it('seoulDateTime은 밀리초가 있어도 초 단위를 유지한다', () => {
+    expect(seoulDateTime(Date.parse('2026-11-24T03:00:00.900Z'))).toBe('2026-11-24T12:00:00')
   })
 })

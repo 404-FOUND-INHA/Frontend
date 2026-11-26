@@ -5,7 +5,8 @@ import type { MockBook, MockData, MockObservation, MockReview, MockSession, Mock
 // 관측은 바꾸지 않는다. 최종 판정은 규칙을 계산하지 않고 계획에 직접 적는다. (invariants.ts가 검증한다)
 // 도서는 뒤에 추가만 하고, 상태를 바꾸는 도서는 아래의 소재불명(MISSING) 1권뿐이다.
 
-const LIBRARIAN: MockUser = { id: 1, name: '김사서' }
+/** Mock의 유일한 가상 사서. 검토자이자 확정자다. */
+export const SEED_LIBRARIAN: Readonly<MockUser> = { id: 1, name: '김사서' }
 
 type Decision =
   /** 자동 매칭된 도서를 확정한다. */
@@ -82,6 +83,8 @@ export function buildSeedReviews(
       copyNumber: null,
       lifecycleStatus: 'MISSING',
       expectedShelfId: shelfId,
+      currentShelfId: shelfId,
+      loanStatus: 'AVAILABLE',
       widthCm: 2.1,
     })
     return id
@@ -92,7 +95,7 @@ export function buildSeedReviews(
     reviews.push({
       id: reviews.length + 1,
       observationId: o.id,
-      reviewerId: LIBRARIAN.id,
+      reviewerId: SEED_LIBRARIAN.id,
       // 결과를 수신한 날 오후에 검토한다. (수신 이후, 확정 이전)
       reviewedAt: `${o.receivedAt.slice(0, 10)}T14:${String(order).padStart(2, '0')}:00`,
       ...decision,
@@ -131,5 +134,5 @@ export function buildSeedReviews(
       }
     }
   }
-  return { users: [{ ...LIBRARIAN }], books, reviews }
+  return { users: [{ ...SEED_LIBRARIAN }], books, reviews }
 }
