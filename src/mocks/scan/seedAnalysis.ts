@@ -117,7 +117,7 @@ export function buildSeedAnalysis(
 
   function addBook(shelf: MockShelf, overrides: Partial<MockBook> = {}): number {
     const id = books.length + 1
-    books.push({
+    const book: Omit<MockBook, 'currentShelfId'> = {
       id,
       registrationNo: `EM${pad(id, 7)}`,
       title: `${shelf.shelfCode} 소장 도서 ${id}`,
@@ -125,9 +125,12 @@ export function buildSeedAnalysis(
       copyNumber: id % 9 === 0 ? 'c.2' : null,
       lifecycleStatus: 'NORMAL',
       expectedShelfId: shelf.id,
+      loanStatus: 'AVAILABLE',
       widthCm: id % 7 === 0 ? null : 2.1,
       ...overrides,
-    })
+    }
+    // 처음에는 정상 배치 서가에 있는 것으로 둔다. 확정한 회차의 확인 서가는 seed.ts가 반영한다.
+    books.push({ ...book, currentShelfId: book.expectedShelfId })
     return id
   }
 

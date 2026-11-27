@@ -7,12 +7,14 @@ import {
 } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { queryClient as appQueryClient } from '@/lib/queryClient'
-import { SEED_ZONES } from '@/mocks/scan/seed'
+import { SEED_SESSION_IDS, SEED_ZONES } from '@/mocks/scan/seed'
 import { getScanStore, resetScanStore } from '@/mocks/scan/store'
 import type { PageResponse, ScanRoomResponse, ScanSessionResponse } from '@/types/scan/api'
 import { scanKeys } from './queryKeys'
 import { createScanSessionMutationOptions } from './useCreateScanSession'
+import { finalizeScanSessionMutationOptions } from './useFinalizeScanSession'
 import { scanRoomsQueryOptions } from './useScanRooms'
+import { scanSessionQueryOptions } from './useScanSession'
 import { loadMoreScanSessions, scanSessionsInfiniteQueryOptions } from './useScanSessions'
 
 // 회차 생성과 더보기 요청이 겹치는 경합을 실제 300ms Mock 지연과 가짜 타이머로 순서를 고정해 재현한다.
@@ -333,5 +335,100 @@ describe('회차 생성과 더보기가 겹치는 경합', () => {
     expect(roomOpen(SEED_ZONES.MULTIMEDIA)).toBe(true)
     expect(roomOpen(SEED_ZONES.SOCIAL)).toBe(true) // 기존 미완료 회차가 있는 자료실은 그대로 true
     expect(roomOpen(SEED_ZONES.HUMANITIES)).toBe(true)
+  })
+})
+
+function startFinalize(sessionId: number) {
+  const mutation = new MutationObserver(queryClient, finalizeScanSessionMutationOptions(queryClient, sessionId))
+  return mutation.mutate()
+}
+
+/** mutation의 결과와, 결과가 정해진 순간의 캐시 값을 기록한다 */
+function track(promise: Promise<unknown>, key: readonly unknown[]) {
+  const outcome: { result: 'pending' | 'success' | 'error'; cached?: unknown } = { result: 'pending' }
+  const settle = (result: 'success' | 'error') => () => {
+    outcome.result = result
+    outcome.cached = queryClient.getQueryData(key)
+  }
+  const done = promise.then(settle('success'), settle('error'))
+  return { outcome, done }
+}
+
+describe('겹친 갱신이 진행 중인 활성 조회를 교체하는 경합', () => {
+  const FIRST_MUTATIONS: [string, () => Promise<unknown>][] = [
+    ['회차 3 확정', () => startFinalize(SEED_SESSION_IDS.REVIEW_COMPLETE)],
+    ['새 회차 생성', () => startCreate()],
+  ]
+
+  /** 빈 캐시에서 두 mutation을 차례로 시작하고, 첫 요청이 끝나기 전에 자료실을 구독한 뒤 400ms까지 진행한다. */
+  async function overlap(startFirst: () => Promise<unknown>) {
+    const first = track(startFirst(), scanKeys.rooms()) // 0ms
+    await advance(100)
+    const second = track(startFinalize(SEED_SESSION_IDS.REVIEW_NONE), scanKeys.rooms()) // 100ms
+    await advance(50)
+    const rooms = subscribeRooms() // 150ms: 데이터가 없는 최초 조회
+    await advance(250) // 400ms: 두 번째 갱신이 자료실 조회를 교체한다
+    const results = () => [first.outcome.result, second.outcome.result]
+    return { first, second, rooms, results }
+  }
+
+  it.each(FIRST_MUTATIONS)('%s → 회차 4 확정: 두 mutation은 대체 조회가 끝난 뒤에 성공한다', async (_label, startFirst) => {
+    const { first, second, rooms, results } = await overlap(startFirst)
+
+    expect(rooms.getCurrentResult()).toMatchObject({ status: 'pending', fetchStatus: 'fetching', data: undefined })
+    expect(results()).toEqual(['pending', 'pending'])
+    await advance(299) // 699ms: 대체 응답 직전
+    expect(results()).toEqual(['pending', 'pending'])
+
+    await advance(1)
+    await Promise.all([first.done, second.done])
+    expect(results()).toEqual(['success', 'success'])
+    for (const { outcome } of [first, second]) expect(outcome.cached).toEqual(getScanStore().getRooms())
+  })
+
+  it.each(FIRST_MUTATIONS)('%s → 회차 4 확정: 대체 조회가 실패해도 두 mutation은 성공으로 끝난다', async (_label, startFirst) => {
+    const { first, second, rooms, results } = await overlap(startFirst)
+    vi.spyOn(getScanStore(), 'getRooms').mockImplementation(() => {
+      throw new Error('조회 실패')
+    })
+
+    await advance(300)
+    await Promise.all([first.done, second.done])
+
+    expect(results()).toEqual(['success', 'success'])
+    expect(rooms.getCurrentResult()).toMatchObject({ status: 'error', fetchStatus: 'idle', data: undefined })
+    vi.restoreAllMocks()
+  })
+
+  it('대체 조회가 캐시에서 제거되면 더 기다리지 않는다', async () => {
+    const { first, second, results } = await overlap(() => startFinalize(SEED_SESSION_IDS.REVIEW_COMPLETE))
+
+    queryClient.removeQueries({ queryKey: scanKeys.rooms() })
+    await advance(0)
+
+    expect(results()).toEqual(['success', 'success'])
+    await Promise.all([first.done, second.done])
+    await advance(300) // 제거된 요청의 지연 타이머를 마저 진행한다
+  })
+
+  it('같은 회차의 뒤따른 확정 실패도 앞선 확정의 상세 재조회 대기를 끊지 않는다', async () => {
+    const SID = SEED_SESSION_IDS.REVIEW_COMPLETE
+    const detail = new QueryObserver(queryClient, scanSessionQueryOptions(SID))
+    cleanups.push(detail.subscribe(() => {}))
+    await advance(300)
+
+    const first = track(startFinalize(SID), scanKeys.session(SID)) // 0ms: 300ms에 확정, 600ms까지 재조회
+    await advance(100)
+    const second = track(startFinalize(SID), scanKeys.session(SID)) // 400ms에 SCAN_009, 700ms까지 재조회
+    await advance(300) // 400ms
+    expect([first.outcome.result, second.outcome.result]).toEqual(['pending', 'pending'])
+    await advance(299) // 699ms
+    expect([first.outcome.result, second.outcome.result]).toEqual(['pending', 'pending'])
+
+    await advance(1)
+    await Promise.all([first.done, second.done])
+    expect([first.outcome.result, second.outcome.result]).toEqual(['success', 'error'])
+    expect(first.outcome.cached).toEqual(getScanStore().getSession(SID))
+    expect(detail.getCurrentResult().data).toEqual(getScanStore().getSession(SID))
   })
 })

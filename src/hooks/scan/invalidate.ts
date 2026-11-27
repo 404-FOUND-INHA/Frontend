@@ -1,4 +1,7 @@
-import type { QueryClient } from '@tanstack/react-query'
+import type { Query, QueryClient, QueryKey } from '@tanstack/react-query'
+import { ERROR_CODE, isApiError } from '@/api/ApiError'
+import type { ScanSessionResponse } from '@/types/scan/api'
+import type { FinalizeResponse } from '@/types/scan/review'
 import { scanKeys } from './queryKeys'
 
 /**
@@ -27,4 +30,71 @@ export async function invalidateAfterCreate(queryClient: QueryClient): Promise<v
   ]
   await Promise.all(filters.map((filter) => queryClient.cancelQueries({ ...filter, type: 'inactive' })))
   await Promise.all(filters.map((filter) => queryClient.invalidateQueries(filter)))
+}
+
+interface Target {
+  queryKey: QueryKey
+  exact?: boolean
+}
+
+const sessionTarget = (sessionId: number): Target => ({ queryKey: scanKeys.session(sessionId), exact: true })
+const reviewsTarget = (sessionId: number): Target => ({ queryKey: scanKeys.sessionReviews(sessionId) })
+
+/** 회차 확정으로 응답이 달라지는 조회 */
+const finalizeTargets = (sessionId: number): Target[] => [
+  { queryKey: scanKeys.sessionLists() }, // 상태, 확정일
+  sessionTarget(sessionId),
+  { queryKey: scanKeys.rooms() }, // hasOpenSession
+  { queryKey: scanKeys.analysis(sessionId), exact: true }, // session.status
+  reviewsTarget(sessionId),
+  // 관측의 matchedBook은 도서의 현재 상태를 담으므로 다른 회차의 관측도 달라질 수 있다.
+  { queryKey: scanKeys.allShelfObservations() },
+  { queryKey: scanKeys.allObservations() },
+]
+
+const hasNoData = (query: Query) => query.state.data === undefined
+
+/**
+ * 비활성 쿼리 취소 → (선택) 캐시에 직접 반영 → 무효화. 활성 쿼리의 재조회가 끝나면 완료되고, 재조회 실패로는 거부되지 않는다.
+ *
+ * 비활성 쿼리를 먼저 취소하는 이유는 invalidateAfterCreate의 설명과 같다.
+ * 활성 쿼리의 진행 중인 요청은 "조용한(silent) 취소 후 새 요청"으로 교체해야 한다. 교체된 요청을 기다리던
+ * 앞선 mutation은 새 요청이 끝날 때까지 이어서 기다린다. 되돌리기(revert)로만 취소하면 그 대기가 바로 끝난다.
+ * - 데이터가 있는 쿼리는 invalidateQueries가 이렇게 교체한다.
+ * - 데이터가 없는 최초 요청은 invalidateQueries가 재사용하므로(갱신 이전의 늦은 응답이 캐시에 남는다) 직접 취소한다.
+ *   취소와 invalidateQueries 사이에 await가 있으면 새 요청이 시작되기 전에 대기가 끝나므로 이어서 호출한다.
+ */
+async function refresh(queryClient: QueryClient, targets: Target[], write?: () => void): Promise<void> {
+  await Promise.all(targets.map((target) => queryClient.cancelQueries({ ...target, type: 'inactive' })))
+  write?.()
+  await Promise.all(
+    targets.map((target) => {
+      void queryClient.cancelQueries({ ...target, type: 'active', predicate: hasNoData }, { silent: true })
+      return queryClient.invalidateQueries(target)
+    }),
+  )
+}
+
+/**
+ * 회차 확정 성공 후의 갱신. 캐시에 있는 회차 상세에는 확정 응답의 상태를 먼저 반영해,
+ * 재조회가 실패해도 확정 전 상태(확정 가능)로 보이지 않게 한다. 캐시에 없는 상세는 만들지 않는다.
+ */
+export function invalidateAfterFinalize(queryClient: QueryClient, response: FinalizeResponse): Promise<void> {
+  const { sessionId, status, finalizedAt } = response
+  return refresh(queryClient, finalizeTargets(sessionId), () => {
+    queryClient.setQueryData<ScanSessionResponse>(
+      scanKeys.session(sessionId),
+      (session) => session && { ...session, status, processingStage: 'ANALYSIS_DONE', finalizedAt },
+    )
+  })
+}
+
+/** 회차 확정 실패 후의 갱신. 오류가 알려 주는 범위만 다시 불러오고, 그 외의 오류에는 캐시를 바꾸지 않는다. */
+export function invalidateAfterFinalizeError(queryClient: QueryClient, sessionId: number, error: unknown): Promise<void> {
+  const code = isApiError(error) ? error.code : undefined
+  // 이미 확정됐거나 상태가 달라졌다. 확정 시각은 응답에 없으므로 직접 쓰지 않고 다시 불러온다.
+  if (code === ERROR_CODE.SCAN_SESSION_NOT_FINALIZABLE) return refresh(queryClient, finalizeTargets(sessionId))
+  if (code === ERROR_CODE.SCAN_REVIEW_INCOMPLETE) return refresh(queryClient, [reviewsTarget(sessionId)])
+  if (code === ERROR_CODE.SCAN_SESSION_NOT_FOUND) return refresh(queryClient, [sessionTarget(sessionId)])
+  return Promise.resolve()
 }

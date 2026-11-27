@@ -10,14 +10,19 @@ import type {
   ScanSessionResponse,
   ScanSessionStatus,
 } from '@/types/scan/api'
+import type { FinalizeResponse, ReviewListParams, ReviewListResponse } from '@/types/scan/review'
 import { isValidIsoDate } from '@/utils/calendarDate'
-import { seoulDate, seoulDateTime } from '@/utils/seoulTime'
+import { seoulDate, seoulDateTime, seoulDateTimeWithMillis } from '@/utils/seoulTime'
 import { buildAnalysis, buildObservationDetail, buildShelfObservations } from './analysis'
+import { applyFinalization, planFinalization } from './finalize'
+import { buildReviewList, reviewSummaryOf } from './review'
 import { createSeedData } from './seed'
+import { SEED_LIBRARIAN } from './seedReview'
 import type { MockData, MockSession } from './types'
 
-// 메모리 단일 원본. 목록·상세·자료실·분석 결과 응답은 모두 이 데이터에서 읽을 때 파생한다. 새로고침하면 시드로 초기화된다.
-// Backend ScanSessionService, ObservationQueryService의 규칙을 따르되, 실제 DB·락·검증 메시지까지 재현하지는 않는다.
+// 메모리 단일 원본. 목록·상세·자료실·분석 결과·사서 검토 응답은 모두 이 데이터에서 읽을 때 파생한다. 새로고침하면 시드로 초기화된다.
+// Backend ScanSessionService, ObservationQueryService, ReviewService(조회), ScanFinalizationService의 규칙을 따르되,
+// 실제 DB·락·권한·감사 로그·검증 메시지까지 재현하지는 않는다.
 //
 // 모든 메서드는 동기 함수다. "중복 검사 → 저장"이 await 없이 한 번에 실행되므로,
 // 데이터 접근 계층(api/scanSessions.ts)에서 요청이 동시에 들어와도 이벤트 루프 안에서 끼어들 수 없다.
@@ -29,6 +34,7 @@ const ALL_STATUSES: readonly ScanSessionStatus[] = ['IN_PROGRESS', 'REVIEW', 'CO
 const DEFAULT_PAGE_SIZE = 20
 const MAX_PAGE_SIZE = 100
 const MAX_OFFSET = 2_147_483_647 // Java int 최댓값. 넘으면 Backend는 400으로 막는다.
+const MIN_INT = -2_147_483_648 // Java int 최솟값
 const MAX_SESSION_NAME_LENGTH = 100
 const MAX_ZONE_LENGTH = 30
 
@@ -40,6 +46,7 @@ const MESSAGE = {
   SCAN_NO_ACTIVE_SHELF: '점검할 수 있는 서가가 없는 자료실입니다.',
   SCAN_SHELF_NOT_IN_SESSION: '해당 회차의 점검 대상 서가가 아닙니다.',
   SCAN_OBSERVATION_NOT_FOUND: '해당 회차의 관측 도서를 찾을 수 없습니다.',
+  SCAN_SESSION_NOT_FINALIZABLE: '확정할 수 있는 회차 상태가 아닙니다.',
 } as const
 
 export interface ScanStore {
@@ -51,6 +58,10 @@ export interface ScanStore {
   getAnalysis(sessionId: number): ScanAnalysisResponse
   getShelfObservations(sessionId: number, shelfId: number): ShelfObservationsResponse
   getObservation(sessionId: number, observationId: number): ObservationDetailResponse
+  /** 검토 대상 목록과 회차 전체의 검토 진행 현황. 회차 상태와 무관하게 조회할 수 있다. */
+  getReviews(sessionId: number, params?: ReviewListParams): ReviewListResponse
+  /** 검토를 마친 REVIEW 회차를 확정한다. 실패하면 아무것도 바뀌지 않는다. */
+  finalizeSession(sessionId: number): FinalizeResponse
   /** 현재 저장소 내용의 복사본 (테스트·디버깅용) */
   snapshot(): MockData
 }
@@ -64,8 +75,13 @@ function fail(status: number, code: string, message: string, errors: FieldError[
   return new ApiError(status, { code, message, errors })
 }
 
-function invalidInput(errors: FieldError[] = []): ApiError {
-  return fail(400, ERROR_CODE.INVALID_INPUT, MESSAGE.INVALID_INPUT, errors)
+function invalidInput(errors: FieldError[] = [], message: string = MESSAGE.INVALID_INPUT): ApiError {
+  return fail(400, ERROR_CODE.INVALID_INPUT, message, errors)
+}
+
+/** Backend의 int 파라미터에 바인딩할 수 있는 값인가 */
+function isJavaInt(value: number): boolean {
+  return Number.isInteger(value) && value >= MIN_INT && value <= MAX_OFFSET
 }
 
 function processingStageOf(status: ScanSessionStatus): ProcessingStage {
@@ -132,7 +148,7 @@ export function createScanStore(initial: MockData, options: ScanStoreOptions = {
   }
 
   /**
-   * 분석 결과 조회용. 모든 경로 ID를 먼저 검사해 안전한 정수가 아니면 400이고, 그다음 회차 존재를 확인한다.
+   * 분석 결과와 검토 조회용. 모든 ID 파라미터를 먼저 검사해 안전한 정수가 아니면 400이고, 그다음 회차 존재를 확인한다.
    * 서가·관측 확인은 그 뒤다. Backend의 ID는 Java Long이라 2^53 - 1을 넘어도 Long 범위 안이면 404지만,
    * JavaScript number로는 그런 ID를 정확히 구분할 수 없어 Mock은 400으로 거부한다.
    * 0과 음수는 Backend처럼 존재하지 않는 ID(404)다.
@@ -217,6 +233,20 @@ export function createScanStore(initial: MockData, options: ScanStoreOptions = {
       return buildObservationDetail(data, observation)
     },
 
+    getReviews(sessionId, params = {}) {
+      const { shelfId, reviewed } = params
+      // 파라미터 형식 오류(400)는 회차 확인보다 먼저다.
+      const requested = { page: params.page ?? 0, size: params.size ?? DEFAULT_PAGE_SIZE }
+      if (!isJavaInt(requested.page) || !isJavaInt(requested.size)) throw invalidInput()
+      if (reviewed !== undefined && typeof reviewed !== 'boolean') throw invalidInput()
+      // shelfId는 회차의 대상 서가인지 확인하지 않는다. 대상이 아니면 빈 목록이다.
+      requireQueryTarget(sessionId, ...(shelfId === undefined ? [] : [shelfId]))
+      const page = Math.max(requested.page, 0)
+      const size = Math.min(Math.max(requested.size, 1), MAX_PAGE_SIZE)
+      if (page * size > MAX_OFFSET) throw invalidInput([], 'page 값이 너무 큽니다.')
+      return buildReviewList(data, sessionId, { shelfId, reviewed, page, size })
+    },
+
     createSession(request) {
       // 1) 요청 본문 파싱: 잘못된 날짜 형식은 검증 오류보다 먼저 400(errors 없음)이 된다.
       const planned = request.plannedStartDate
@@ -254,6 +284,7 @@ export function createScanStore(initial: MockData, options: ScanStoreOptions = {
         plannedStartDate: planned ?? null,
         startedAt: createdAt,
         finalizedAt: null,
+        finalizedBy: null,
         createdAt,
       }
       data.sessions.push(session)
@@ -261,6 +292,23 @@ export function createScanStore(initial: MockData, options: ScanStoreOptions = {
         data.sessionShelves.push({ sessionId: session.id, shelfId: shelf.id, scanStatus: 'WAITING' })
       }
       return toResponse(session, floorsBySession([session.id]).get(session.id) ?? null)
+    },
+
+    finalizeSession(sessionId) {
+      // 검사 순서: ID(400) → 회차(404) → 상태(SCAN_009) → 미처리 검토(SCAN_010)
+      // 서가의 수신 여부는 따로 검사하지 않는다. REVIEW 회차는 모든 대상 서가가 수신 상태다.
+      const session = requireQueryTarget(sessionId)
+      if (session.status !== 'REVIEW') {
+        throw fail(409, ERROR_CODE.SCAN_SESSION_NOT_FINALIZABLE, MESSAGE.SCAN_SESSION_NOT_FINALIZABLE)
+      }
+      const { remaining } = reviewSummaryOf(data, sessionId)
+      if (remaining > 0) {
+        throw fail(409, ERROR_CODE.SCAN_REVIEW_INCOMPLETE, `검토가 끝나지 않은 관측이 ${remaining}건 있어 확정할 수 없습니다.`)
+      }
+      // 같은 초에 기록된 시각과 전후를 가리려면 밀리초가 필요하다.
+      const plan = planFinalization(data, session, { now: seoulDateTimeWithMillis(now()), userId: SEED_LIBRARIAN.id })
+      applyFinalization(data, plan)
+      return plan.response
     },
 
     snapshot() {

@@ -45,6 +45,8 @@ const book = (id: number, overrides: Partial<MockBook> = {}): MockBook => ({
   copyNumber: null,
   lifecycleStatus: 'NORMAL',
   expectedShelfId: 1,
+  currentShelfId: 1,
+  loanStatus: 'AVAILABLE',
   widthCm: 2,
   ...overrides,
 })
@@ -86,6 +88,7 @@ function customData(observations: MockObservation[] = defaultObservations()): Mo
     plannedStartDate: null,
     startedAt: '2026-11-01T09:00:00',
     finalizedAt: null,
+    finalizedBy: null,
     createdAt: '2026-11-01T09:00:00',
   })
   return {
@@ -109,6 +112,9 @@ function customData(observations: MockObservation[] = defaultObservations()): Mo
       book(5, { expectedShelfId: 3 }),
     ],
     observations,
+    users: [],
+    reviews: [],
+    missingCandidates: [],
   }
 }
 
@@ -165,9 +171,9 @@ describe('기본 시드의 분석 결과', () => {
     [SEED_SESSION_IDS.REVIEW_PARTIAL, counts(128, 120, 5, 3)],
     [SEED_SESSION_IDS.REVIEW_COMPLETE, counts(96, 83, 6, 7)],
     [SEED_SESSION_IDS.REVIEW_NONE, counts(0, 0, 0, 0)],
-    [SEED_SESSION_IDS.COMPLETED_PENDING, counts(112, 108, 3, 1)],
-    [SEED_SESSION_IDS.COMPLETED_READY, counts(104, 99, 3, 2)],
-    [SEED_SESSION_IDS.COMPLETED_EMPTY, counts(90, 90, 0, 0)],
+    [SEED_SESSION_IDS.COMPLETED_LATEST, counts(112, 108, 3, 1)],
+    [SEED_SESSION_IDS.COMPLETED_PREVIOUS, counts(104, 99, 3, 2)],
+    [SEED_SESSION_IDS.COMPLETED_CLEAN, counts(90, 90, 0, 0)],
   ])('회차 %i의 건수', (id, expected) => {
     expect(seedStore().getAnalysis(id).counts).toEqual(expected)
   })
@@ -671,7 +677,19 @@ describe('분석 데이터 정합성 검사', () => {
 describe('시각 형식', () => {
   const withTime = (time: string) => {
     const data = customData([unidentified(1, 'OCR_FAILED', { detectedAt: time, receivedAt: time })])
-    Object.assign(data.sessions[0], { status: 'COMPLETED', startedAt: time, createdAt: time, finalizedAt: time })
+    Object.assign(data.sessions[0], { status: 'COMPLETED', startedAt: time, createdAt: time, finalizedAt: time, finalizedBy: 1 })
+    // 확정된 회차에는 미검토 관측이 없어야 한다.
+    data.users.push({ id: 1, name: '사서' })
+    data.reviews.push({
+      id: 1,
+      observationId: 1,
+      action: 'MARK_UNIDENTIFIED',
+      finalStatus: 'UNIDENTIFIED',
+      finalBookId: null,
+      reviewerId: 1,
+      comment: null,
+      reviewedAt: time,
+    })
     return findInvariantViolations(data)
   }
 
@@ -681,6 +699,15 @@ describe('시각 형식', () => {
       expect(withTime(`2026-11-01T10:00:${seconds}`)).toEqual([])
     },
   )
+
+  it.each([
+    '2024-02-29T23:59:59.999999',
+    '2000-02-29T00:00:00',
+    '2026-12-31T23:59:59',
+    '2026-01-01T00:00:00.000001',
+  ])('실제 존재하는 날짜·시각 %s을 허용한다', (time) => {
+    expect(withTime(time)).toEqual([])
+  })
 
   it.each([
     '2026-11-01',
@@ -694,9 +721,20 @@ describe('시각 형식', () => {
     '2026-11-01T10:00:00.5+09:00',
     ' 2026-11-01T10:00:00',
     '2026-11-01T10:00:00 ',
+    '2026-00-01T10:00:00',
+    '2026-13-01T10:00:00',
+    '2026-11-00T10:00:00',
+    '2026-11-31T10:00:00',
+    '2026-02-29T10:00:00',
+    '2100-02-29T10:00:00',
+    '2026-11-01T24:00:00',
+    '2026-11-01T99:00:00',
+    '2026-11-01T14:60:00',
+    '2026-11-01T14:99:00',
+    '2026-11-01T14:00:60',
   ])('잘못된 시각 "%s"은 모든 시각 필드에서 위반이다', (time) => {
     const violations = withTime(time).join('\n')
-    for (const field of ['startedAt', 'createdAt', 'receivedAt', 'detectedAt']) {
+    for (const field of ['startedAt', 'createdAt', 'finalizedAt', 'receivedAt', 'detectedAt', 'reviewedAt']) {
       expect(violations).toContain(`${field} 형식 오류`)
     }
   })

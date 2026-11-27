@@ -1,11 +1,19 @@
 import type { ScanSessionStatus } from '@/types/scan/api'
+import type { ReviewListParams } from '@/types/scan/review'
+
+export const SCAN_REVIEWS_PAGE_SIZE = 20
 
 /** 상태 필터를 정렬·중복 제거한다. 순서만 다른 필터가 서로 다른 캐시가 되지 않도록 한다. 없거나 비어 있으면 "전체"다. */
 export function normalizeStatuses(statuses?: readonly ScanSessionStatus[]): ScanSessionStatus[] {
   return [...new Set(statuses ?? [])].sort()
 }
 
-/** 분석 결과 조회는 모든 ID가 양의 안전한 정수일 때만 요청한다. 라우트나 선택 값이 없으면(NaN 등) 요청하지 않는다. */
+/** 검토 조회 조건. 생략한 page·size를 기본값으로 채워 같은 요청이 같은 캐시를 쓴다. 생략한 필터는 "전체"다. */
+export function normalizeReviewParams({ shelfId, reviewed, page = 0, size = SCAN_REVIEWS_PAGE_SIZE }: ReviewListParams = {}) {
+  return { shelfId, reviewed, page, size }
+}
+
+/** 분석 결과와 검토 조회는 모든 ID가 양의 안전한 정수일 때만 요청한다. 라우트나 선택 값이 없으면(NaN 등) 요청하지 않는다. */
 export function isRequestableId(id: number): boolean {
   return Number.isSafeInteger(id) && id > 0
 }
@@ -20,4 +28,13 @@ export const scanKeys = {
   analysis: (sessionId: number) => ['scan', 'analysis', sessionId] as const,
   shelfObservations: (sessionId: number, shelfId: number) => ['scan', 'shelfObservations', sessionId, shelfId] as const,
   observation: (sessionId: number, observationId: number) => ['scan', 'observation', sessionId, observationId] as const,
+  /** 모든 회차의 관측 목록·상세를 가리키는 접두사 (무효화용) */
+  allShelfObservations: () => ['scan', 'shelfObservations'] as const,
+  allObservations: () => ['scan', 'observation'] as const,
+  /** 한 회차의 모든 필터·페이지의 검토 조회를 가리키는 접두사 (무효화용) */
+  sessionReviews: (sessionId: number) => ['scan', 'reviews', sessionId] as const,
+  reviews: (sessionId: number, params?: ReviewListParams) =>
+    ['scan', 'reviews', sessionId, normalizeReviewParams(params)] as const,
+  /** 회차 확정 mutation */
+  finalize: (sessionId: number) => ['scan', 'finalize', sessionId] as const,
 }
