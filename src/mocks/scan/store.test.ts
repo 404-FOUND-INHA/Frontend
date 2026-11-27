@@ -47,6 +47,7 @@ function customData(overrides: Partial<MockData> = {}): MockData {
     users: [],
     reviews: [],
     missingCandidates: [],
+    evaluations: [],
     ...overrides,
   }
 }

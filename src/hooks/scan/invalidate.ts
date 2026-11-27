@@ -50,6 +50,9 @@ const finalizeTargets = (sessionId: number): Target[] => [
   // 관측의 matchedBook은 도서의 현재 상태를 담으므로 다른 회차의 관측도 달라질 수 있다.
   { queryKey: scanKeys.allShelfObservations() },
   { queryKey: scanKeys.allObservations() },
+  { queryKey: scanKeys.sessionMissingCandidates(sessionId) }, // 확정과 함께 산출된다
+  // 폐기 검토 후보의 서가는 도서의 현재 서가라 다른 회차의 목록도 달라질 수 있다.
+  { queryKey: scanKeys.allDisposalCandidates() },
 ]
 
 const hasNoData = (query: Query) => query.state.data === undefined

@@ -115,6 +115,7 @@ function customData(observations: MockObservation[] = defaultObservations()): Mo
     users: [],
     reviews: [],
     missingCandidates: [],
+    evaluations: [],
   }
 }
 

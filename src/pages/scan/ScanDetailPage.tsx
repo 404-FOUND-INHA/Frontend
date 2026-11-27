@@ -2,12 +2,15 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import Page from '@/components/common/Page'
 import { useScanSession } from '@/hooks/scan/useScanSession'
 import ScanAnalysisSection from './ScanAnalysisSection'
+import ScanLayoutButton from './ScanLayoutButton'
 import ScanProgressSteps from './ScanProgressSteps'
+import ScanResultsSection from './ScanResultsSection'
 import ScanReviewSection from './ScanReviewSection'
 import ScanSessionSummary from './ScanSessionSummary'
 import { showsAnalysis } from './scanAnalysisView'
 import { getDetailViewState, parseSessionId } from './scanDetailView'
 import { isFromList, scanPaths } from './scanPaths'
+import { showsResults } from './scanResultsView'
 import { showsReview } from './scanReviewView'
 import './scanDetail.css'
 
@@ -18,7 +21,7 @@ const BODY_MESSAGE = {
   error: '회차 정보를 불러오지 못했습니다',
 } as const
 
-// 장서점검 회차 상세(기본 정보, 처리 단계, 자동 분석 결과, 사서 검토 현황과 회차 확정). 최종 결과 등은 이후 이슈에서 이 본문 아래에 추가한다.
+// 장서점검 회차 상세(기본 정보, 처리 단계, 자동 분석 결과, 사서 검토 현황과 회차 확정, 확정한 회차의 최종 점검·가치평가 결과).
 export default function ScanDetailPage() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -80,6 +83,13 @@ export default function ScanDetailPage() {
             {showsAnalysis(query.data.status) && <ScanAnalysisSection sessionId={query.data.id} />}
             {/* key: 다른 회차로 바뀌면 모달의 열림 상태와 확정 오류를 이어받지 않는다. */}
             {showsReview(query.data.status) && <ScanReviewSection key={query.data.id} session={query.data} />}
+            {/* key: 다른 회차로 바뀌면 후보 목록의 열림 상태를 이어받지 않는다. */}
+            {showsResults(query.data.status) && (
+              <>
+                <ScanResultsSection key={`results-${query.data.id}`} sessionId={query.data.id} />
+                <ScanLayoutButton />
+              </>
+            )}
           </>
         )}
       </div>

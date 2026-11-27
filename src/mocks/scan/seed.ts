@@ -1,5 +1,7 @@
 import { collectFindings, reflectFindings, replaceBooks } from './finalize'
 import { buildSeedAnalysis } from './seedAnalysis'
+import { buildSeedEvaluations } from './seedEvaluations'
+import { buildSeedMissingCandidates } from './seedMissingCandidates'
 import { SEED_LIBRARIAN, buildSeedReviews } from './seedReview'
 import type { MockBook, MockData, MockScanShelfStatus, MockSession, MockSessionShelf, MockShelf } from './types'
 
@@ -181,8 +183,7 @@ export function createSeedData(): MockData {
   const sessionShelves = buildSessionShelves(sessions, shelves)
   const { books, observations } = buildSeedAnalysis({ shelves, sessions, sessionShelves })
   const reviewed = buildSeedReviews({ sessions, books, observations })
-  // 이미 확정한 시드 회차의 소재불명 후보는 만들지 않는다. 당시 원장을 알 수 없어 지금 원장으로 계산하면 의미가 없다.
-  // 즉 이 회차들의 빈 후보는 "산출 결과 0건"이 아니라 "Mock 미구성"이며, 과거 후보는 Issue #6에서 명시적 시드로 추가한다.
+  const allBooks = [...reviewed.books, ...unobservedBooks(shelves, reviewed.books.length + 1)]
   const data: MockData = {
     shelves,
     sessions,
@@ -190,8 +191,10 @@ export function createSeedData(): MockData {
     observations,
     users: reviewed.users,
     reviews: reviewed.reviews,
-    books: [...reviewed.books, ...unobservedBooks(shelves, reviewed.books.length + 1)],
-    missingCandidates: [],
+    books: allBooks,
+    // 이미 확정한 회차의 후보는 확정 로직으로 산출하지 않고 시나리오로 정한다. (seedMissingCandidates.ts)
+    missingCandidates: buildSeedMissingCandidates({ sessions, sessionShelves, books: allBooks }),
+    evaluations: [],
   }
-  return { ...data, books: reflectCompletedSessions(data) }
+  return { ...data, books: reflectCompletedSessions(data), evaluations: buildSeedEvaluations(data) }
 }

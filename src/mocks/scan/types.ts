@@ -8,6 +8,8 @@ import type {
   ScanShelfStatus,
 } from '@/types/scan/analysis'
 import type { ScanSessionStatus } from '@/types/scan/api'
+import type { CompositeCandidateStatus } from '@/types/scan/evaluation'
+import type { MissingCandidateStatus } from '@/types/scan/missingCandidate'
 import type { ReviewAction, ReviewFinalStatus } from '@/types/scan/review'
 
 export interface MockShelf {
@@ -119,15 +121,35 @@ export interface MockReview {
 
 /**
  * 회차를 확정할 때 점검에서 발견되지 않은 도서(소재불명 후보). 회차·도서당 최대 1건이다.
- * 확정 처리에 필요한 값만 둔다. 확인 상태, 연속 미발견 횟수, 확인 기록과 조회는 Issue #6에서 추가한다.
+ * 연속 미발견 횟수는 생성할 때 정해 저장한다. 확인 기록은 시드에만 있고, 기록하는 기능은 없다.
  */
 export interface MockMissingCandidate {
   id: number
   sessionId: number
   bookId: number
   expectedShelfId: number
+  consecutiveMissingCount: number
+  status: MissingCandidateStatus
+  reviewedBy: number | null
+  reviewedAt: string | null
+  note: string | null
   /** 회차 확정 시각 */
   createdAt: string
+}
+
+/**
+ * 회차의 도서 1권에 대한 종합 평가(book_evaluation의 BACKEND 결과). 회차·도서당 최대 1건이다.
+ * 점수와 판정은 시드(또는 테스트 데이터)가 정해 두며 Mock은 평가를 실행하거나 점수를 계산하지 않는다.
+ */
+export interface MockEvaluation {
+  id: number
+  sessionId: number
+  bookId: number
+  /** 평가 불가(NOT_EVALUABLE)이면 null */
+  finalScore: number | null
+  candidateStatus: CompositeCandidateStatus
+  profileVersion: string
+  evaluatedAt: string
 }
 
 export interface MockData {
@@ -139,4 +161,5 @@ export interface MockData {
   users: MockUser[]
   reviews: MockReview[]
   missingCandidates: MockMissingCandidate[]
+  evaluations: MockEvaluation[]
 }

@@ -12,7 +12,7 @@ export interface ReviewQuery {
   size: number
 }
 
-function bookBrief(data: MockData, bookId: number): BookBrief {
+export function bookBrief(data: MockData, bookId: number): BookBrief {
   const book = data.books.find((b) => b.id === bookId)
   if (!book) throw new Error(`Mock 데이터에 없는 도서입니다: ${bookId}`)
   return { bookId: book.id, registrationNo: book.registrationNo, title: book.title, callNumber: book.callNumber }

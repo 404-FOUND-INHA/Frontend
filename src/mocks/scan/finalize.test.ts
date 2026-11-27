@@ -159,9 +159,11 @@ describe('시드 회차 3 확정 (모든 검토 완료)', () => {
         b.loanStatus !== 'LOST',
     )
     expect(candidateBookIds(after, 3)).toEqual(expected.map((b) => b.id))
-    expect(response.summary.missingCandidates).toBe(after.missingCandidates.length)
-    expect(after.missingCandidates.map((c) => c.id)).toEqual(expected.map((_, i) => i + 1))
-    for (const c of after.missingCandidates) {
+    const created = after.missingCandidates.slice(before.missingCandidates.length) // 시드 후보 뒤에 이어 붙는다
+    expect(response.summary.missingCandidates).toBe(created.length)
+    expect(created.map((c) => c.id)).toEqual(expected.map((_, i) => before.missingCandidates.length + i + 1))
+    for (const c of created) {
+      expect(c).toMatchObject({ sessionId: 3, status: 'PENDING', reviewedBy: null, reviewedAt: null, note: null })
       expect(c.createdAt).toBe(response.finalizedAt)
       expect(c.expectedShelfId).toBe(after.books.find((b) => b.id === c.bookId)?.expectedShelfId)
     }
@@ -232,7 +234,8 @@ describe('시드 회차 4 확정 (필수 검토와 관측 0건)', () => {
     expect(response.summary).toStrictEqual(summary(0, 0, 0, 0, 0, 30))
     expect(after.books).toStrictEqual(before.books)
     expect(candidateBookIds(after, 4)).toHaveLength(30)
-    expect(new Set(after.missingCandidates.map((c) => c.expectedShelfId))).toEqual(new Set([13, 14]))
+    const created = after.missingCandidates.slice(before.missingCandidates.length)
+    expect(new Set(created.map((c) => c.expectedShelfId))).toEqual(new Set([13, 14]))
     expect(findInvariantViolations(after)).toEqual([])
     expect(findJudgementViolations(after)).toEqual([])
   })
@@ -245,7 +248,7 @@ describe('시드 회차 4 확정 (필수 검토와 관측 0건)', () => {
     const all = store.snapshot().missingCandidates
 
     expect(all.slice(0, first.length)).toStrictEqual(first)
-    expect(all.map((c) => c.id)).toEqual(Array.from({ length: 51 }, (_, i) => i + 1))
+    expect(all.map((c) => c.id)).toEqual(Array.from({ length: 6 + 21 + 30 }, (_, i) => i + 1)) // 시드 6건 포함
   })
 
   it('점검 서가에 대상 도서가 없으면 후보 0건으로 확정한다', () => {
@@ -353,6 +356,7 @@ function customData(overrides: Partial<MockData> = {}): MockData {
     users: [{ id: 1, name: '사서' }],
     reviews: [],
     missingCandidates: [],
+    evaluations: [],
     ...overrides,
   }
 }
@@ -621,10 +625,9 @@ describe('확정 시각', () => {
 })
 
 describe('시드의 확정 관련 데이터', () => {
-  it('확정자는 완료 회차에만 있고 후보는 아직 구성하지 않는다', () => {
+  it('확정자는 완료 회차에만 있다', () => {
     const data = createSeedData()
     expect(data.sessions.every((s) => s.finalizedBy === (s.status === 'COMPLETED' ? 1 : null))).toBe(true)
-    expect(data.missingCandidates).toEqual([])
   })
 
   it('확인 서가는 완료 회차의 마지막 확인 결과이고, 확인한 적이 없으면 예상 서가다', () => {
@@ -675,6 +678,19 @@ describe('확정 정보와 후보의 정합성 검사', () => {
     ['미완료 회차의 후보', (d) => (d.missingCandidates[0].sessionId = 2), '확정한 회차에만'],
     ['확정 시각과 다른 생성 시각', (d) => (d.missingCandidates[0].createdAt = '2026-11-26T12:00:01'), '회차의 확정 시각이어야'],
     ['생성 시각 형식', (d) => (d.missingCandidates[0].createdAt = '2026-11-26'), '후보 1: createdAt 형식 오류'],
+    ['0회인 연속 미발견', (d) => (d.missingCandidates[0].consecutiveMissingCount = 0), '1 이상의 정수'],
+    ['확인 전 후보의 메모', (d) => (d.missingCandidates[0].note = '메모'), '확인 기록이 없어야 함'],
+    ['확인자 없는 확인 결과', (d) => (d.missingCandidates[0].status = 'FOUND'), '확인자와 확인 시각이 있어야 함'],
+    [
+      '없는 확인자',
+      (d) => Object.assign(d.missingCandidates[0], { status: 'FOUND', reviewedBy: 999, reviewedAt: '2026-11-27T09:00:00' }),
+      '존재하지 않는 확인자 999',
+    ],
+    [
+      '생성보다 이른 확인',
+      (d) => Object.assign(d.missingCandidates[0], { status: 'FOUND', reviewedBy: 1, reviewedAt: '2026-11-26T11:59:59' }),
+      '후보 생성 전에 확인',
+    ],
   ])('위반 검출: %s', (_label, corrupt, message) => {
     const data = finalized()
     expect(findInvariantViolations(data)).toEqual([])

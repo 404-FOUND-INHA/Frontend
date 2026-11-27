@@ -208,6 +208,7 @@ function customData(observations: MockObservation[], reviews: MockReview[] = [])
     users: [{ id: 7, name: '검토 사서' }],
     reviews,
     missingCandidates: [],
+    evaluations: [],
   }
 }
 
