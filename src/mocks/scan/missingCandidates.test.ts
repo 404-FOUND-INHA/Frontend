@@ -181,7 +181,7 @@ describe('연속 미발견 횟수', () => {
         },
       ]
     })
-    const shelf = { zone: 'X', floorNo: 1, widthCm: 90, active: true }
+    const shelf = { zone: 'X', floorNo: 1, widthCm: 90, mapX: null, mapY: null, depthCm: null, rotationDegree: null, active: true }
     const book: MockBook = {
       id: 1,
       registrationNo: 'T1',

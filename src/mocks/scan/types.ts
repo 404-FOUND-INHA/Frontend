@@ -18,7 +18,11 @@ export interface MockShelf {
   zone: string | null
   floorNo: number | null
   widthCm: number | null
-  /** 서가 목록의 표시 순서. 조회 응답에는 담지 않고 정렬에만 쓴다. */
+  depthCm: number | null
+  /** 지도 좌표. 해석(단위, 기준점)은 seedShelfPositions.ts 설명을 따른다. */
+  mapX: number | null
+  mapY: number | null
+  rotationDegree: number | null
   displayOrder: number | null
   active: boolean
 }

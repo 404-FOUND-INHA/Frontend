@@ -22,6 +22,13 @@ export function findInvariantViolations(data: MockData): string[] {
 
   if (shelvesById.size !== data.shelves.length) violations.push('서가 ID가 중복됨')
   if (sessionsById.size !== data.sessions.length) violations.push('회차 ID가 중복됨')
+  for (const shelf of data.shelves) {
+    const report = (message: string) => violations.push(`서가 ${shelf.id}: ${message}`)
+    const { mapX, mapY, widthCm, depthCm, rotationDegree } = shelf
+    if ([mapX, mapY].some((v) => v !== null && !Number.isFinite(v))) report('지도 좌표가 숫자가 아님')
+    if ([widthCm, depthCm].some((v) => v !== null && !(Number.isFinite(v) && v >= 0))) report('크기가 0 이상의 숫자가 아님')
+    if (rotationDegree !== null && !(rotationDegree >= 0 && rotationDegree <= 360)) report('회전이 0~360이 아님')
+  }
 
   const openCountByZone = new Map<string, number>()
   for (const session of data.sessions) {

@@ -93,9 +93,9 @@ function customData(observations: MockObservation[] = defaultObservations()): Mo
   })
   return {
     shelves: [
-      { id: 1, shelfCode: 'X-01', zone: 'X', floorNo: 1, widthCm: 90.5, displayOrder: 1, active: true },
-      { id: 2, shelfCode: 'X-02', zone: 'X', floorNo: 1, widthCm: null, displayOrder: 2, active: true },
-      { id: 3, shelfCode: 'Y-01', zone: 'Y', floorNo: 1, widthCm: 90, displayOrder: 1, active: true },
+      { id: 1, shelfCode: 'X-01', zone: 'X', floorNo: 1, widthCm: 90.5, displayOrder: 1, active: true, mapX: null, mapY: null, depthCm: null, rotationDegree: null },
+      { id: 2, shelfCode: 'X-02', zone: 'X', floorNo: 1, widthCm: null, displayOrder: 2, active: true, mapX: null, mapY: null, depthCm: null, rotationDegree: null },
+      { id: 3, shelfCode: 'Y-01', zone: 'Y', floorNo: 1, widthCm: 90, displayOrder: 1, active: true, mapX: null, mapY: null, depthCm: null, rotationDegree: null },
     ],
     sessions: [session(1), session(2)],
     // 서가 관계를 일부러 ID 역순으로 둔다.
@@ -344,6 +344,10 @@ describe('서가 정렬', () => {
       zone: 'X',
       floorNo: 1,
       widthCm: 90,
+      mapX: null,
+      mapY: null,
+      depthCm: null,
+      rotationDegree: null,
       displayOrder,
       active: true,
     }))
