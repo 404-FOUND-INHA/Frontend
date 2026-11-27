@@ -1,0 +1,254 @@
+/* 설정(폐기 후보 기준) 화면. 클래스는 st- 접두어를 쓴다. 색 토큰은 .app(layouts/mainLayout.css)을 따른다. */
+
+.st { display: flex; flex-direction: column; gap: 12px; padding-top: 14px; }
+
+.st-state { margin: 48px 0 0; text-align: center; font-size: 14px; color: #6b7280; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.st-retry {
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--app-border);
+  border-radius: 8px;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--app-primary);
+  cursor: pointer;
+}
+.st-retry:disabled { opacity: 0.5; cursor: default; }
+
+.st-meta { margin: 0; font-size: 12px; color: #6b7280; }
+
+.st-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #ecfdf5;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #047857;
+}
+.st-notice svg { flex: none; margin-top: 2px; }
+
+.st-card {
+  padding: 18px 18px 16px;
+  border: 1px solid var(--app-border);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.03);
+}
+.st-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.st .st-card-title { margin: 0; font-size: 18px; font-weight: 700; line-height: 1.4; letter-spacing: 0; color: var(--app-text); }
+
+.st-value-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 4px 12px;
+  border-radius: 8px;
+  background: var(--app-tab-active-bg);
+  font-size: 12px;
+  color: var(--app-primary);
+}
+.st-value-chip strong { font-size: 24px; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
+
+/* 슬라이더: 채워진 부분(--fill)은 주색, 나머지는 옅은 파랑 */
+.st-range {
+  --track: 8px;
+  --thumb: 20px;
+  --color: var(--app-primary-strong);
+  appearance: none;
+  -webkit-appearance: none;
+  display: block;
+  width: 100%;
+  height: var(--thumb);
+  margin: 18px 0 0;
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.st-range--thin { --track: 6px; --thumb: 18px; margin-top: 8px; }
+.st-range::-webkit-slider-runnable-track {
+  height: var(--track);
+  border-radius: 999px;
+  background: linear-gradient(to right, var(--color) var(--fill), #dbe7fb var(--fill));
+}
+.st-range::-moz-range-track {
+  height: var(--track);
+  border-radius: 999px;
+  background: linear-gradient(to right, var(--color) var(--fill), #dbe7fb var(--fill));
+}
+.st-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: var(--thumb);
+  height: var(--thumb);
+  margin-top: calc((var(--track) - var(--thumb)) / 2);
+  border: 0;
+  border-radius: 50%;
+  background: var(--color);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.25);
+}
+.st-range::-moz-range-thumb {
+  width: var(--thumb);
+  height: var(--thumb);
+  border: 0;
+  border-radius: 50%;
+  background: var(--color);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.25);
+}
+.st-range:focus-visible { outline: 2px solid var(--app-primary); outline-offset: 4px; border-radius: 4px; }
+
+.st-scale { display: flex; justify-content: space-between; margin-top: 10px; font-size: 12px; color: #4b5563; }
+.st-help { margin: 10px 0 0; font-size: 12px; line-height: 1.5; color: #6b7280; }
+
+.st-sum {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.st-sum--ok { background: #ecfdf5; color: #047857; }
+.st-sum--error { background: #fee2e2; color: #b91c1c; }
+
+.st-alert {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fef2f2;
+  font-size: 13px;
+  color: #b91c1c;
+}
+.st-alert svg { flex: none; }
+
+.st-weights { list-style: none; margin: 8px 0 0; padding: 0; }
+.st-weight { margin: 0 -8px; padding: 10px 8px; border: 1px solid transparent; border-radius: 10px; }
+.st-weight-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.st-weight-name { font-size: 15px; font-weight: 600; color: var(--app-text); }
+.st-weight-hint { font-weight: 500; color: #4b5563; }
+.st-weight-value { font-size: 12px; color: #6b7280; white-space: nowrap; }
+.st-weight-value strong { font-size: 15px; font-weight: 700; color: var(--app-primary-strong); font-variant-numeric: tabular-nums; }
+
+/* 합계 오류를 일으킨(마지막으로 바꾼) 평가축 */
+.st-weight--error { border-color: #fca5a5; background: #fff5f5; }
+.st-weight--error .st-weight-name,
+.st-weight--error .st-weight-value strong { color: #b91c1c; }
+.st-weight--error .st-range { --color: #b91c1c; }
+
+.st-preview-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.st .st-preview-title { margin: 0; font-size: 13px; font-weight: 500; line-height: 1.4; letter-spacing: 0; color: #4b5563; }
+.st-preview-count { margin: 4px 0 0; font-size: 12px; color: #6b7280; }
+.st-preview-count strong { font-size: 24px; font-weight: 700; color: var(--app-primary-strong); font-variant-numeric: tabular-nums; }
+.st-preview-delta { color: #047857; }
+.st-preview-delta--changed { color: #b91c1c; font-weight: 600; }
+.st-preview-icon {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: var(--app-tab-active-bg);
+  color: var(--app-primary);
+}
+.st-preview-icon--changed { background: #fef2f2; color: #b91c1c; }
+.st-preview-muted { margin: 8px 0 0; font-size: 13px; color: #6b7280; }
+.st-preview-na { font-size: 12px; font-weight: 600; color: #b91c1c; }
+.st-preview-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 14px 12px;
+  border-radius: 8px;
+  background: #f9fafb;
+  font-size: 13px;
+  color: #b91c1c;
+}
+.st-preview-error svg { flex: none; }
+
+/* 하단 고정 영역(Page footer)의 버튼 */
+.st-actions { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 10px; }
+.st-btn {
+  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 12px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+}
+.st-btn--ghost { border: 1px solid var(--app-border); background: #fff; color: #374151; }
+.st-btn--primary { border: 0; background: var(--app-primary-strong); color: #fff; }
+.st-btn:disabled { cursor: not-allowed; }
+.st-btn--ghost:disabled { color: #9ca3af; }
+.st-btn--primary:disabled { background: #e8eef8; color: #94a3b8; }
+.st-btn:focus-visible { outline: 2px solid var(--app-primary); outline-offset: 2px; }
+
+/* 저장 확인 모달 */
+.st-dialog {
+  width: min(340px, calc(100% - 40px));
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 24px 20px 20px;
+  border: 0;
+  border-radius: 16px;
+  background: #fff;
+  color: var(--app-text);
+  text-align: center;
+  box-shadow: 0 20px 40px rgb(0 0 0 / 0.2);
+}
+.st-dialog::backdrop { background: rgb(17 24 39 / 0.5); backdrop-filter: blur(2px); }
+.st-dialog p { margin: 0; word-break: keep-all; }
+.st-dialog-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: #e8eef8;
+  color: var(--app-primary);
+}
+.st-dialog .st-dialog-title { margin: 14px 0 0; font-size: 20px; font-weight: 700; line-height: 1.4; letter-spacing: 0; color: var(--app-text); }
+.st-dialog .st-dialog-desc { margin-top: 4px; font-size: 14px; color: #4b5563; }
+.st-dialog-summary {
+  margin: 16px 0 0;
+  padding: 14px;
+  border-radius: 10px;
+  background: #f4f7fc;
+  font-size: 13px;
+  text-align: left;
+}
+.st-dialog-summary div { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.st-dialog-summary div + div { margin-top: 10px; }
+.st-dialog-summary dt { flex: none; color: #6b7280; }
+.st-dialog-summary dd { margin: 0; text-align: right; color: #374151; }
+.st-dialog-summary dd strong { color: var(--app-primary-strong); }
+.st-dialog-weights { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 2px 10px; }
+.st-chip-delta { padding: 0 4px; border-radius: 4px; background: #fee2e2; color: #b91c1c; }
+.st-dialog-summary .st-plus { color: var(--app-primary); }
+.st-dialog-summary .st-minus { color: #6b7280; font-weight: 500; }
+.st-dialog-summary .st-warn { color: #b91c1c; }
+.st-dialog .st-dialog-note { margin-top: 12px; font-size: 12px; line-height: 1.5; color: #6b7280; }
+.st-dialog .st-dialog-error { margin-top: 12px; padding: 10px 12px; border-radius: 8px; background: #fef2f2; font-size: 13px; line-height: 1.45; color: #b91c1c; }
+.st-dialog-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 20px; }
+.st-dialog-btn { min-height: 48px; border: 0; border-radius: 10px; font-size: 15px; font-weight: 700; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.st-dialog-btn--cancel { background: #e8eef8; color: #1f2937; }
+.st-dialog-btn--confirm { background: var(--app-primary-strong); color: #fff; }
+.st-dialog-btn:disabled { opacity: 0.5; cursor: default; }
+.st-dialog-btn:focus-visible { outline: 2px solid var(--app-primary); outline-offset: 2px; }
