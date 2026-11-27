@@ -1,4 +1,5 @@
 import type { ObservationStatusReason } from '@/types/scan/analysis'
+import { consecutiveMissingCount } from './finalize'
 import { timeKey } from './localDateTime'
 import { OPEN_STATUSES } from './store'
 import type { MockBook, MockData, MockObservation, MockReview } from './types'
@@ -277,6 +278,19 @@ function findFinalizationViolations(data: MockData): string[] {
     }
     const createdAt = timeKey(candidate.createdAt)
     if (createdAt === null) report('createdAt 형식 오류')
+    const { consecutiveMissingCount: count, status, reviewedBy, reviewedAt, note } = candidate
+    if (!Number.isInteger(count) || count < 1) report('연속 미발견 횟수는 1 이상의 정수여야 함')
+    if (status === 'PENDING') {
+      if (reviewedBy !== null || reviewedAt !== null || note !== null) report('확인 전 후보에는 확인 기록이 없어야 함')
+    } else if (reviewedBy === null || reviewedAt === null) {
+      report('확인한 후보에는 확인자와 확인 시각이 있어야 함')
+    }
+    if (reviewedBy !== null && !userIds.has(reviewedBy)) report(`존재하지 않는 확인자 ${reviewedBy}`)
+    if (reviewedAt !== null) {
+      const reviewed = timeKey(reviewedAt)
+      if (reviewed === null) report('reviewedAt 형식 오류')
+      else if (createdAt !== null && reviewed < createdAt) report('후보 생성 전에 확인할 수 없음')
+    }
     const session = sessionsById.get(candidate.sessionId)
     const finalizedAt = session?.finalizedAt ? timeKey(session.finalizedAt) : null
     if (session?.status !== 'COMPLETED') report('확정한 회차에만 있어야 함')
@@ -335,6 +349,12 @@ export function findJudgementViolations(data: MockData): string[] {
     if (book.expectedShelfId !== candidate.expectedShelfId) report('도서의 예상 서가와 다름')
     if (book.lifecycleStatus === 'DISPOSED') report('제적 도서는 후보가 아님')
     if (book.loanStatus === 'ON_LOAN' || book.loanStatus === 'LOST') report('대출 중·분실 처리 도서는 후보가 아님')
+    // 직전 점검의 확인 상태가 이후에 바뀌면 저장된 횟수와 달라질 수 있어, 당시 기준 검사에 둔다.
+    const finalizedAt = data.sessions.find((s) => s.id === candidate.sessionId)?.finalizedAt
+    if (finalizedAt) {
+      const expected = consecutiveMissingCount(data, { sessionId: candidate.sessionId, finalizedAt }, candidate)
+      if (candidate.consecutiveMissingCount !== expected) report(`연속 미발견 횟수는 ${expected}여야 함`)
+    }
   }
   return violations
 }

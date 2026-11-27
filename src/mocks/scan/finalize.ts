@@ -1,4 +1,5 @@
 import { ApiError, ERROR_CODE } from '@/api/ApiError'
+import type { MissingCandidateStatus } from '@/types/scan/missingCandidate'
 import type { FinalizeResponse } from '@/types/scan/review'
 import { timeKey } from './localDateTime'
 import type { MockBook, MockData, MockLoanStatus, MockMissingCandidate, MockSession } from './types'
@@ -13,6 +14,9 @@ export type Findings = ReadonlyMap<number, number>
 
 /** 소재불명 후보에서 제외하는 대출 상태 */
 const EXCLUDED_LOAN_STATUSES: readonly MockLoanStatus[] = ['ON_LOAN', 'LOST']
+
+/** 연속 미발견 횟수를 이어 가지 않는 확인 상태: 도서를 찾았거나 종결한 후보 (Backend breaksStreak) */
+const STREAK_BREAKING_STATUSES: readonly MissingCandidateStatus[] = ['FOUND', 'RESOLVED']
 
 export interface FinalizationPlan {
   session: MockSession
@@ -81,6 +85,32 @@ export function replaceBooks(books: readonly MockBook[], updated: readonly MockB
 }
 
 /**
+ * 연속 미발견 횟수 (Backend MissingCandidateGenerator). 도서의 예상 서가를 직전에 점검한 확정 회차, 곧 그 서가의 결과를
+ * 수신한 COMPLETED 회차 중 이번 회차보다 먼저 확정한 가장 최근 회차 하나만 본다. 그 회차에서도 후보였고 찾음·해결로
+ * 종결되지 않았으면 직전 횟수 + 1, 그 외(발견·제외·이력 없음)는 1이다.
+ */
+export function consecutiveMissingCount(
+  data: Pick<MockData, 'sessions' | 'sessionShelves' | 'missingCandidates'>,
+  current: { sessionId: number; finalizedAt: string },
+  { bookId, expectedShelfId }: Pick<MockMissingCandidate, 'bookId' | 'expectedShelfId'>,
+): number {
+  const key = (time: string | null) => (time === null ? '' : (timeKey(time) ?? ''))
+  const checkedBy = new Set(
+    data.sessionShelves
+      .filter((link) => link.shelfId === expectedShelfId && link.scanStatus === 'RESULT_RECEIVED')
+      .map((link) => link.sessionId),
+  )
+  let previous: MockSession | undefined
+  for (const s of data.sessions) {
+    if (s.id === current.sessionId || s.status !== 'COMPLETED' || !checkedBy.has(s.id)) continue
+    if (key(s.finalizedAt) >= key(current.finalizedAt)) continue
+    if (!previous || key(s.finalizedAt) > key(previous.finalizedAt)) previous = s
+  }
+  const last = data.missingCandidates.find((c) => c.sessionId === previous?.id && c.bookId === bookId)
+  return last && !STREAK_BREAKING_STATUSES.includes(last.status) ? last.consecutiveMissingCount + 1 : 1
+}
+
+/**
  * 결과를 수신한 서가가 정상 배치 서가인데 이번 회차에서 발견되지 않은 도서. 다른 서가에서 확인한 도서도 발견이다.
  * 제적, 대출 중, 분실 처리 도서는 제외한다. 후보가 되어도 도서 원장은 바꾸지 않는다.
  */
@@ -103,7 +133,17 @@ function missingCandidatesOf(
       if (book.lifecycleStatus === 'DISPOSED' || EXCLUDED_LOAN_STATUSES.includes(book.loanStatus)) return []
       return [{ bookId: book.id, expectedShelfId }]
     })
-    .map((missing, index) => ({ id: firstId + index, sessionId, createdAt, ...missing }))
+    .map((missing, index) => ({
+      id: firstId + index,
+      sessionId,
+      createdAt,
+      ...missing,
+      consecutiveMissingCount: consecutiveMissingCount(data, { sessionId, finalizedAt: createdAt }, missing),
+      status: 'PENDING',
+      reviewedBy: null,
+      reviewedAt: null,
+      note: null,
+    }))
 }
 
 /**
