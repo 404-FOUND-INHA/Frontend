@@ -1,0 +1,89 @@
+/* 회차 상세의 최종 점검 결과·가치평가 결과 카드와 후보 목록 시트. 클래스는 scan- 접두어만 쓴다.
+   제목·버튼·오류 안내는 scanDetail.css를, '준비 중' 표시는 scanReview.css를 함께 쓴다. */
+
+.scan-result { padding-top: 24px; }
+.scan-result .scan-section-title { margin-bottom: 12px; }
+
+/* 결과 카드 (시안 PNG 기준) */
+.scan-result-card { padding: 16px; border: 1px solid var(--app-border); border-radius: 12px; background: #fff; box-shadow: 0 1px 3px rgb(17 24 39 / 0.06); }
+.scan-result-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; }
+.scan-result-badge { margin: 0; padding: 0 8px; border-radius: 4px; font-size: 12px; font-weight: 700; line-height: 20px; }
+.scan-result-count { display: flex; align-items: baseline; gap: 4px; margin: 0 0 0 auto; }
+.scan-result-count strong { font-size: 22px; font-weight: 700; line-height: 28px; overflow-wrap: anywhere; }
+.scan-result-count span { font-size: 13px; color: #6b7280; }
+
+/* 후보 종류별 색. 작은 글씨의 명암비 4.5:1을 지키는 어두운 글자색을 쓴다. */
+.scan-result-head--missing .scan-result-badge { background: #fee2e2; color: #b91c1c; }
+.scan-result-head--missing .scan-result-count strong { color: #dc2626; }
+.scan-result-head--disposal .scan-result-badge,
+.scan-candidate .scan-result-badge { background: #ffedd5; color: #9a3412; }
+.scan-result-head--disposal .scan-result-count strong { color: #c2410c; }
+
+.scan-result-text { margin: 8px 0 0; font-size: 13px; line-height: 1.45; color: #6b7280; word-break: keep-all; }
+.scan-result-sub { margin: 4px 0 0; font-size: 13px; line-height: 1.45; font-weight: 700; color: #4b5563; word-break: keep-all; }
+.scan-result-foot { display: flex; justify-content: flex-end; margin-top: 12px; border-top: 1px solid var(--app-border); }
+/* 글자 크기는 작게, 누르는 높이는 40px */
+.scan-result-open { display: flex; align-items: center; gap: 2px; min-height: 40px; margin-bottom: -12px; padding: 0 0 0 12px; border: 0; background: none; font: inherit; font-size: 13px; font-weight: 700; color: var(--app-primary); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.scan-result-open:focus-visible { outline: 2px solid var(--app-primary); outline-offset: -2px; border-radius: 6px; }
+
+.scan-result-state { display: flex; flex-direction: column; align-items: center; gap: 12px; margin: 0; padding: 12px 0; font-size: 14px; color: #6b7280; text-align: center; }
+.scan-result-state p { margin: 0; }
+.scan-result-none { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 0; font-size: 13px; line-height: 1.45; color: #6b7280; text-align: center; word-break: keep-all; }
+.scan-result-none p { margin: 0; }
+.scan-result-none .scan-result-none-title { font-size: 14px; font-weight: 700; color: var(--app-text); }
+.scan-result-none button { margin-top: 6px; }
+
+/* 하단 시트. 기본 dialog를 화면 아래에 붙인다. display는 바꾸지 않아 닫힌 dialog는 숨겨진다. */
+.scan-sheet {
+  width: 100%;
+  max-width: min(430px, 100%);
+  height: 80vh;
+  height: 80dvh;
+  max-height: none;
+  margin: auto auto 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 16px 16px 0 0;
+  background: #fff;
+  color: var(--app-text);
+  box-shadow: 0 -8px 30px rgb(0 0 0 / 0.18);
+}
+.scan-sheet::backdrop { background: rgb(0 0 0 / 0.45); }
+.scan-sheet-panel { display: flex; flex-direction: column; height: 100%; }
+/* 장식용 손잡이. 끌어서 닫는 기능은 없다. */
+.scan-sheet-handle { flex: none; width: 36px; height: 4px; margin: 12px auto 0; border-radius: 2px; background: #d1d5db; }
+.scan-sheet-header { flex: none; display: flex; align-items: center; gap: 10px; padding: 8px 8px 12px 16px; border-bottom: 1px solid var(--app-border); }
+.scan-sheet .scan-sheet-title { margin: 0; font-size: 18px; font-weight: 700; line-height: 1.4; letter-spacing: 0; color: var(--app-text); }
+.scan-sheet-total { padding: 1px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; line-height: 20px; white-space: nowrap; }
+.scan-sheet--missing .scan-sheet-total { background: #fee2e2; color: #b91c1c; }
+.scan-sheet--disposal .scan-sheet-total { background: #ffedd5; color: #9a3412; }
+.scan-sheet-close { flex: none; display: grid; place-items: center; width: 40px; height: 40px; margin-left: auto; padding: 0; border: 0; border-radius: 8px; background: none; font-size: 28px; line-height: 1; color: #6b7280; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.scan-sheet-close:focus-visible { outline: 2px solid var(--app-primary); outline-offset: -2px; }
+
+/* 목록만 스크롤한다. min-height:0이 있어야 헤더가 밀려나지 않는다. */
+.scan-sheet-body { flex: 1 1 0; min-height: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding: 16px 16px calc(16px + env(safe-area-inset-bottom, 0px)); }
+.scan-sheet-list { display: flex; flex-direction: column; gap: 12px; margin: 0; padding: 0; list-style: none; }
+.scan-sheet-empty { margin: 0; padding: 32px 0; font-size: 14px; color: #6b7280; text-align: center; }
+.scan-sheet-next-error { margin: 12px 0 0; }
+.scan-sheet-more { width: 100%; min-height: 44px; margin-top: 12px; border: 1px solid var(--app-border); border-radius: 12px; background: #fff; font: inherit; font-size: 14px; font-weight: 700; color: var(--app-primary); cursor: pointer; }
+.scan-sheet-more:disabled { opacity: 0.5; cursor: default; }
+.scan-sheet-more:focus-visible { outline: 2px solid var(--app-primary); outline-offset: 2px; }
+
+/* 후보 항목. position이 없으면 안의 .scan-sr-only(absolute)가 목록 스크롤 영역을 벗어나 dialog까지 스크롤되게 만든다. */
+.scan-candidate { position: relative; display: flex; flex-direction: column; align-items: flex-start; padding: 14px 16px; border: 1px solid var(--app-border); border-radius: 12px; box-shadow: 0 1px 3px rgb(17 24 39 / 0.06); }
+.scan-candidate-status { margin: 0; padding: 0 8px; border-radius: 4px; background: #f3f4f6; font-size: 12px; font-weight: 700; line-height: 20px; color: #374151; }
+.scan-candidate-status--found { background: #dcfce7; color: #166534; }
+.scan-candidate-status--not-found { background: #fef3c7; color: #92400e; }
+.scan-candidate-status--lost-candidate { background: #fee2e2; color: #b91c1c; }
+.scan-candidate-status--resolved { background: var(--app-tab-active-bg); color: var(--app-primary); }
+.scan-candidate-fields { align-self: stretch; display: flex; flex-direction: column; gap: 5px; margin: 10px 0 0; font-size: 13px; line-height: 1.45; }
+.scan-candidate-fields div { display: flex; justify-content: space-between; gap: 16px; }
+.scan-candidate-fields dt { flex: none; color: #6b7280; }
+/* 긴 도서명은 줄을 바꾸고, 띄어쓰기 없는 긴 값도 카드 밖으로 넘치지 않게 한다. */
+.scan-candidate-fields dd { min-width: 0; margin: 0; font-weight: 700; color: var(--app-text); text-align: right; word-break: keep-all; overflow-wrap: anywhere; }
+.scan-candidate-foot { align-self: stretch; display: flex; justify-content: flex-end; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--app-border); }
+.scan-evidence-btn { display: flex; align-items: center; gap: 6px; padding: 0; border: 0; background: none; font: inherit; font-size: 12px; font-weight: 700; color: #64748b; cursor: not-allowed; }
+
+/* 화면에는 숨기고 읽어 주기만 하는 글자 */
+.scan-sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }

@@ -1,13 +1,13 @@
-import { ChevronRightIcon } from '@/components/common/icons'
 import { useScanReviews } from '@/hooks/scan/useScanReviews'
 import type { ScanSessionResponse } from '@/types/scan/api'
 import ScanFinalizeActions from './ScanFinalizeActions'
+import ScanLayoutButton from './ScanLayoutButton'
 import { getReviewViewState, retryScanReviews, reviewProgressPercent } from './scanReviewView'
 import './scanDetail.css'
 import './scanReview.css'
 
 /**
- * 사서 검토 현황, 서가 배치도 버튼(준비 중), 회차 확정. 검토 조회의 로딩과 오류는 이 영역 안에서만 표시한다.
+ * 사서 검토 현황과, 검토 중 회차의 서가 배치도 버튼(준비 중)·회차 확정. 검토 조회의 로딩과 오류는 이 영역 안에서만 표시한다.
  * 마운트하면 조회가 시작되므로, 분석이 끝난 회차에서만 렌더링한다. (showsReview)
  */
 export default function ScanReviewSection({ session }: { session: ScanSessionResponse }) {
@@ -88,14 +88,13 @@ export default function ScanReviewSection({ session }: { session: ScanSessionRes
         )}
       </div>
 
-      {/* 서가 배치도 화면은 아직 없어 이동하지 않는다. */}
-      <button type="button" className="scan-layout-btn" disabled>
-        서가 배치도 보러가기
-        <span className="scan-layout-soon">준비 중</span>
-        <ChevronRightIcon size={18} />
-      </button>
-
-      {session.status === 'REVIEW' && <ScanFinalizeActions session={session} review={view} />}
+      {/* 확정한 회차의 배치도 버튼은 결과 카드 아래에 둔다. (ScanDetailPage) */}
+      {session.status === 'REVIEW' && (
+        <>
+          <ScanLayoutButton />
+          <ScanFinalizeActions session={session} review={view} />
+        </>
+      )}
     </section>
   )
 }
