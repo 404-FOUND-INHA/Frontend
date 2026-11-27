@@ -3,18 +3,22 @@ import {
   MutationObserver,
   QueryClient,
   QueryObserver,
+  type InfiniteQueryObserverOptions,
   type QueryKey,
 } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError, ERROR_CODE } from '@/api/ApiError'
 import { getObservationDetail, getScanAnalysis, getShelfObservations } from '@/api/scanAnalysis'
+import { getDisposalCandidates, getMissingCandidates } from '@/api/scanResults'
 import { getScanReviews } from '@/api/scanReviews'
 import { getScanRooms, getScanSession, getScanSessions } from '@/api/scanSessions'
 import { queryClient as appQueryClient } from '@/lib/queryClient'
 import { SEED_SESSION_IDS, SEED_ZONES, createSeedData } from '@/mocks/scan/seed'
 import { getScanStore, resetScanStore } from '@/mocks/scan/store'
 import { scanKeys } from './queryKeys'
+import { disposalCandidatesInfiniteQueryOptions } from './useDisposalCandidates'
 import { finalizeScanSessionMutationOptions } from './useFinalizeScanSession'
+import { missingCandidatesInfiniteQueryOptions } from './useMissingCandidates'
 import { observationDetailQueryOptions } from './useObservationDetail'
 import { scanAnalysisQueryOptions } from './useScanAnalysis'
 import { scanReviewsQueryOptions } from './useScanReviews'
@@ -144,6 +148,23 @@ function raceTarget<T extends object>(
   }
 }
 
+/** 무한 조회의 첫 페이지 요청을 붙잡는다. 캐시에는 선택(select) 전의 페이지가 담긴다. */
+function infiniteRaceTarget<T extends object, TData, TKey extends QueryKey>(
+  name: string,
+  options: InfiniteQueryObserverOptions<T, Error, TData, TKey, number>,
+  read: () => Promise<T>,
+): RaceTarget {
+  return {
+    name,
+    key: options.queryKey,
+    start() {
+      const held = controllable(read)
+      const watcher = new InfiniteQueryObserver(queryClient, { ...options, queryFn: held.queryFn })
+      return { watcher, held, unwrap: (data) => (data as { pages: unknown[] }).pages[0], read }
+    },
+  }
+}
+
 const listOptions = scanSessionsInfiniteQueryOptions(['REVIEW'])
 const readList = () => getScanSessions({ status: ['REVIEW'], page: 0, size: 20 })
 
@@ -166,6 +187,10 @@ const RACE_TARGETS: RaceTarget[] = [
   ),
   raceTarget('다른 회차의 관측 상세', observationDetailQueryOptions(other.sessionId, other.id), () =>
     getObservationDetail(other.sessionId, other.id),
+  ),
+  infiniteRaceTarget('소재불명 후보', missingCandidatesInfiniteQueryOptions(SID), () => getMissingCandidates(SID, { size: 20 })),
+  infiniteRaceTarget('다른 회차의 폐기 후보', disposalCandidatesInfiniteQueryOptions(SEED_SESSION_IDS.COMPLETED_LATEST), () =>
+    getDisposalCandidates(SEED_SESSION_IDS.COMPLETED_LATEST, { size: 20 }),
   ),
 ]
 
@@ -258,6 +283,26 @@ describe('확정 성공 후 캐시 갱신', () => {
     untouched.forEach((key, index) => expect(queryClient.getQueryState(key)).toBe(before[index]))
   })
 
+  it('해당 회차의 소재불명 후보와 모든 회차의 폐기 후보를 갱신하고, 다른 회차의 소재불명 후보는 그대로 둔다', async () => {
+    const candidates = new InfiniteQueryObserver(queryClient, missingCandidatesInfiniteQueryOptions(SID))
+    subscribe(candidates)
+    await loaded(candidates)
+    expect(candidates.getCurrentResult().data?.totalElements).toBe(0)
+
+    const { COMPLETED_LATEST, COMPLETED_PREVIOUS } = SEED_SESSION_IDS
+    const disposals = [SID, COMPLETED_LATEST, COMPLETED_PREVIOUS].map((id) => disposalCandidatesInfiniteQueryOptions(id))
+    for (const options of disposals) await queryClient.fetchInfiniteQuery(options)
+    const otherMissing = missingCandidatesInfiniteQueryOptions(COMPLETED_LATEST)
+    await queryClient.fetchInfiniteQuery(otherMissing)
+    const before = queryClient.getQueryState(otherMissing.queryKey)
+
+    const response = await finalize().done
+
+    expect(candidates.getCurrentResult().data?.totalElements).toBe(response.summary.missingCandidates)
+    for (const options of disposals) expect(queryClient.getQueryState(options.queryKey)?.isInvalidated).toBe(true)
+    expect(queryClient.getQueryState(otherMissing.queryKey)).toBe(before)
+  })
+
   it('캐시에 없는 회차 상세는 만들지 않는다', async () => {
     await finalize().done
     expect(queryClient.getQueryCache().getAll()).toHaveLength(0)
@@ -332,6 +377,9 @@ describe('확정 실패 후 캐시 갱신', () => {
       검토: scanKeys.reviews(sessionId),
       서가관측: scanKeys.shelfObservations(101, 1),
       관측상세: scanKeys.observation(101, 1),
+      소재불명후보: scanKeys.missingCandidates(sessionId),
+      '다른 회차의 폐기후보': scanKeys.disposalCandidates(100),
+      '다른 소재불명후보': scanKeys.missingCandidates(100),
       '다른 상세': scanKeys.session(100),
       '다른 분석': scanKeys.analysis(100),
       '다른 검토': scanKeys.reviews(100),
@@ -355,7 +403,7 @@ describe('확정 실패 후 캐시 갱신', () => {
       'SCAN_009',
       SEED_SESSION_IDS.COMPLETED_LATEST,
       null,
-      ['목록', '상세', '자료실', '분석', '검토', '서가관측', '관측상세'],
+      ['목록', '상세', '자료실', '분석', '검토', '서가관측', '관측상세', '소재불명후보', '다른 회차의 폐기후보'],
     ],
     ['SCAN_010', SEED_SESSION_IDS.REVIEW_PARTIAL, null, ['검토']],
     ['SCAN_001', 999, null, ['상세']],

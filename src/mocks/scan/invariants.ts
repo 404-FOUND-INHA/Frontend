@@ -67,6 +67,7 @@ export function findInvariantViolations(data: MockData): string[] {
     ...findObservationViolations(data),
     ...findReviewViolations(data),
     ...findFinalizationViolations(data),
+    ...findEvaluationViolations(data),
   ]
 }
 
@@ -251,17 +252,7 @@ function findFinalizationViolations(data: MockData): string[] {
   if (new Set(data.missingCandidates.map((c) => c.id)).size !== data.missingCandidates.length) {
     violations.push('후보 ID가 중복됨')
   }
-  /** '회차:도서' → 그 회차에서 위치가 확인된 도서 */
-  const found = new Set(
-    data.observations
-      .filter((o) => o.bookId !== null && RESOLVED_STATUSES.includes(o.analysisStatus))
-      .map((o) => `${o.sessionId}:${o.bookId}`),
-  )
-  const observationsById = new Map(data.observations.map((o) => [o.id, o]))
-  for (const review of data.reviews) {
-    const observation = observationsById.get(review.observationId)
-    if (observation && review.finalBookId !== null) found.add(`${observation.sessionId}:${review.finalBookId}`)
-  }
+  const found = confirmedKeys(data)
   const receivedShelves = new Set(
     data.sessionShelves.filter((ss) => ss.scanStatus === 'RESULT_RECEIVED').map((ss) => `${ss.sessionId}:${ss.shelfId}`),
   )
@@ -297,6 +288,61 @@ function findFinalizationViolations(data: MockData): string[] {
     else if (createdAt !== null && finalizedAt !== null && createdAt !== finalizedAt) {
       report('createdAt은 회차의 확정 시각이어야 함')
     }
+  }
+  return violations
+}
+
+/** '회차:도서' → 그 회차에서 위치가 확인된 도서 */
+function confirmedKeys(data: MockData): Set<string> {
+  const keys = new Set(
+    data.observations
+      .filter((o) => o.bookId !== null && RESOLVED_STATUSES.includes(o.analysisStatus))
+      .map((o) => `${o.sessionId}:${o.bookId}`),
+  )
+  const observationsById = new Map(data.observations.map((o) => [o.id, o]))
+  for (const review of data.reviews) {
+    const observation = observationsById.get(review.observationId)
+    if (observation && review.finalBookId !== null) keys.add(`${observation.sessionId}:${review.finalBookId}`)
+  }
+  return keys
+}
+
+/**
+ * 종합 평가의 참조 관계. 확정한 회차에만 있고, 평가한 회차는 위치를 확인한 도서 전부에 결과가 하나씩 있다.
+ * 점수와 판정이 기준 점수에 맞는지는 확인하지 않는다. (평가 설정은 Mock에 없다)
+ */
+function findEvaluationViolations(data: MockData): string[] {
+  const violations: string[] = []
+  const sessionsById = new Map(data.sessions.map((s) => [s.id, s]))
+  const confirmed = confirmedKeys(data)
+  if (new Set(data.evaluations.map((e) => e.id)).size !== data.evaluations.length) violations.push('평가 ID가 중복됨')
+
+  const evaluated = new Set<string>()
+  for (const evaluation of data.evaluations) {
+    const report = (message: string) => violations.push(`평가 ${evaluation.id}: ${message}`)
+    const { sessionId, bookId, finalScore, candidateStatus } = evaluation
+    const key = `${sessionId}:${bookId}`
+    if (evaluated.has(key)) report('같은 회차에 도서의 평가가 중복됨')
+    evaluated.add(key)
+    if (!confirmed.has(key)) report(`이 회차에서 확인하지 않은 도서 ${bookId}`)
+
+    if ((finalScore === null) !== (candidateStatus === 'NOT_EVALUABLE')) report('점수는 평가 불가일 때만 없어야 함')
+    if (finalScore !== null && !(finalScore >= 0 && finalScore <= 100 && Number(finalScore.toFixed(2)) === finalScore)) {
+      report('점수는 0~100이고 소수 둘째 자리까지임')
+    }
+
+    const evaluatedAt = timeKey(evaluation.evaluatedAt)
+    if (evaluatedAt === null) report('evaluatedAt 형식 오류')
+    const session = sessionsById.get(sessionId)
+    const finalizedAt = session?.finalizedAt ? timeKey(session.finalizedAt) : null
+    if (session?.status !== 'COMPLETED') report('확정한 회차에만 있어야 함')
+    else if (evaluatedAt !== null && finalizedAt !== null && evaluatedAt < finalizedAt) report('확정 전에 평가할 수 없음')
+  }
+
+  const evaluatedSessions = new Set(data.evaluations.map((e) => e.sessionId))
+  for (const key of confirmed) {
+    const sessionId = Number(key.split(':')[0])
+    if (evaluatedSessions.has(sessionId) && !evaluated.has(key)) violations.push(`평가가 빠진 확인 도서: ${key}`)
   }
   return violations
 }

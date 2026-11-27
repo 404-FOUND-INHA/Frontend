@@ -8,6 +8,7 @@ import type {
   ScanShelfStatus,
 } from '@/types/scan/analysis'
 import type { ScanSessionStatus } from '@/types/scan/api'
+import type { CompositeCandidateStatus } from '@/types/scan/evaluation'
 import type { MissingCandidateStatus } from '@/types/scan/missingCandidate'
 import type { ReviewAction, ReviewFinalStatus } from '@/types/scan/review'
 
@@ -136,6 +137,21 @@ export interface MockMissingCandidate {
   createdAt: string
 }
 
+/**
+ * 회차의 도서 1권에 대한 종합 평가(book_evaluation의 BACKEND 결과). 회차·도서당 최대 1건이다.
+ * 점수와 판정은 시드(또는 테스트 데이터)가 정해 두며 Mock은 평가를 실행하거나 점수를 계산하지 않는다.
+ */
+export interface MockEvaluation {
+  id: number
+  sessionId: number
+  bookId: number
+  /** 평가 불가(NOT_EVALUABLE)이면 null */
+  finalScore: number | null
+  candidateStatus: CompositeCandidateStatus
+  profileVersion: string
+  evaluatedAt: string
+}
+
 export interface MockData {
   shelves: MockShelf[]
   sessions: MockSession[]
@@ -145,4 +161,5 @@ export interface MockData {
   users: MockUser[]
   reviews: MockReview[]
   missingCandidates: MockMissingCandidate[]
+  evaluations: MockEvaluation[]
 }

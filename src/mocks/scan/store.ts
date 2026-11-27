@@ -10,6 +10,7 @@ import type {
   ScanSessionResponse,
   ScanSessionStatus,
 } from '@/types/scan/api'
+import type { DisposalCandidateListParams, EvaluationListResponse } from '@/types/scan/evaluation'
 import type {
   MissingCandidateListParams,
   MissingCandidateResponse,
@@ -19,6 +20,7 @@ import type { FinalizeResponse, ReviewListParams, ReviewListResponse } from '@/t
 import { isValidIsoDate } from '@/utils/calendarDate'
 import { seoulDate, seoulDateTime, seoulDateTimeWithMillis } from '@/utils/seoulTime'
 import { buildAnalysis, buildObservationDetail, buildShelfObservations } from './analysis'
+import { buildDisposalCandidates } from './evaluations'
 import { applyFinalization, planFinalization } from './finalize'
 import { buildMissingCandidatePage } from './missingCandidates'
 import { buildReviewList, reviewSummaryOf } from './review'
@@ -28,7 +30,7 @@ import type { MockData, MockSession } from './types'
 
 // 메모리 단일 원본. 목록·상세·자료실·분석 결과·사서 검토 응답은 모두 이 데이터에서 읽을 때 파생한다. 새로고침하면 시드로 초기화된다.
 // Backend ScanSessionService, ObservationQueryService, ReviewService(조회), ScanFinalizationService,
-// MissingCandidateService(조회)의 규칙을 따르되,
+// MissingCandidateService(조회), EvaluationQueryService(폐기 검토 후보)의 규칙을 따르되,
 // 실제 DB·락·권한·감사 로그·검증 메시지까지 재현하지는 않는다.
 //
 // 모든 메서드는 동기 함수다. "중복 검사 → 저장"이 await 없이 한 번에 실행되므로,
@@ -76,6 +78,8 @@ export interface ScanStore {
   getReviews(sessionId: number, params?: ReviewListParams): ReviewListResponse
   /** 회차의 소재불명 후보 한 페이지. 회차 상태와 무관하게 조회할 수 있고 확정 전에는 빈 목록이다. */
   getMissingCandidates(sessionId: number, params?: MissingCandidateListParams): PageResponse<MissingCandidateResponse>
+  /** 회차의 평가 현황과 폐기 검토 후보 한 페이지. 회차 상태와 무관하며 평가 결과가 없으면 모두 0이다. */
+  getDisposalCandidates(sessionId: number, params?: DisposalCandidateListParams): EvaluationListResponse
   /** 검토를 마친 REVIEW 회차를 확정한다. 실패하면 아무것도 바뀌지 않는다. */
   finalizeSession(sessionId: number): FinalizeResponse
   /** 현재 저장소 내용의 복사본 (테스트·디버깅용) */
@@ -100,7 +104,7 @@ function isJavaInt(value: number): boolean {
   return Number.isInteger(value) && value >= MIN_INT && value <= MAX_OFFSET
 }
 
-/** 검토·후보 조회의 page, size. 생략하면 기본값이고, int가 아니면 400이다. */
+/** 검토·후보·평가 조회의 page, size. 생략하면 기본값이고, int가 아니면 400이다. */
 function requirePageParams(params: { page?: number; size?: number }): { page: number; size: number } {
   const requested = { page: params.page ?? 0, size: params.size ?? DEFAULT_PAGE_SIZE }
   if (!isJavaInt(requested.page) || !isJavaInt(requested.size)) throw invalidInput()
@@ -280,6 +284,12 @@ export function createScanStore(initial: MockData, options: ScanStoreOptions = {
       if (status !== undefined && !MISSING_CANDIDATE_STATUSES.includes(status)) throw invalidInput()
       requireQueryTarget(sessionId)
       return buildMissingCandidatePage(data, sessionId, { status, ...clampPage(requested) })
+    },
+
+    getDisposalCandidates(sessionId, params = {}) {
+      const requested = requirePageParams(params)
+      requireQueryTarget(sessionId)
+      return buildDisposalCandidates(data, sessionId, clampPage(requested))
     },
 
     createSession(request) {

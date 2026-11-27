@@ -217,6 +217,7 @@ describe('연속 미발견 횟수', () => {
       users: [{ id: 1, name: '사서' }],
       reviews: [],
       missingCandidates: candidates,
+      evaluations: [],
     }
   }
 

@@ -356,6 +356,7 @@ function customData(overrides: Partial<MockData> = {}): MockData {
     users: [{ id: 1, name: '사서' }],
     reviews: [],
     missingCandidates: [],
+    evaluations: [],
     ...overrides,
   }
 }

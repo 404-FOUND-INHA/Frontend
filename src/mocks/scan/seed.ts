@@ -1,5 +1,6 @@
 import { collectFindings, reflectFindings, replaceBooks } from './finalize'
 import { buildSeedAnalysis } from './seedAnalysis'
+import { buildSeedEvaluations } from './seedEvaluations'
 import { buildSeedMissingCandidates } from './seedMissingCandidates'
 import { SEED_LIBRARIAN, buildSeedReviews } from './seedReview'
 import type { MockBook, MockData, MockScanShelfStatus, MockSession, MockSessionShelf, MockShelf } from './types'
@@ -193,6 +194,7 @@ export function createSeedData(): MockData {
     books: allBooks,
     // 이미 확정한 회차의 후보는 확정 로직으로 산출하지 않고 시나리오로 정한다. (seedMissingCandidates.ts)
     missingCandidates: buildSeedMissingCandidates({ sessions, sessionShelves, books: allBooks }),
+    evaluations: [],
   }
-  return { ...data, books: reflectCompletedSessions(data) }
+  return { ...data, books: reflectCompletedSessions(data), evaluations: buildSeedEvaluations(data) }
 }
