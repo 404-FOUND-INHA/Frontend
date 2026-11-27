@@ -15,7 +15,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { key: 'home', label: '홈', to: '/', end: true },
   { key: 'scan', label: '점검', to: '/scan' }, // /scan, /scan/new, /scan/:sessionId 모두에서 활성
   { key: 'shelf', label: '서가' },
-  { key: 'settings', label: '설정' },
+  { key: 'settings', label: '설정', to: '/settings' },
 ]
 
 /** 현재 경로에서 활성이어야 하는 탭. 어느 탭에도 해당하지 않으면(예: 404) null */

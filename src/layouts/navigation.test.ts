@@ -6,12 +6,12 @@ describe('NAV_ITEMS', () => {
     expect(NAV_ITEMS.map((item) => item.label)).toEqual(['홈', '점검', '서가', '설정'])
   })
 
-  it('아직 연결되지 않은 서가·설정에는 이동 경로가 없고, 홈·점검에만 있다', () => {
+  it('아직 연결되지 않은 서가에는 이동 경로가 없고, 홈·점검·설정에만 있다', () => {
     expect(NAV_ITEMS.map((item) => [item.key, item.to])).toEqual([
       ['home', '/'],
       ['scan', '/scan'],
       ['shelf', undefined],
-      ['settings', undefined],
+      ['settings', '/settings'],
     ])
   })
 })
@@ -37,16 +37,20 @@ describe('getActiveNavKey', () => {
     expect(getActiveNavKey('/Scan/12')).toBe('scan')
   })
 
-  it.each(['/없는경로', '/login', '/shelf', '/settings', ''])(
+  it.each(['/settings', '/settings/'])('설정 탭은 %s 에서 활성이다', (pathname) => {
+    expect(getActiveNavKey(pathname)).toBe('settings')
+  })
+
+  it.each(['/없는경로', '/login', '/shelf', '/settings-old', ''])(
     '어느 탭에도 해당하지 않는 경로(%s)는 활성 탭이 없다',
     (pathname) => {
       expect(getActiveNavKey(pathname)).toBeNull()
     },
   )
 
-  it('연결되지 않은 탭(서가, 설정)은 어떤 경로에서도 활성이 되지 않는다', () => {
+  it('연결되지 않은 탭(서가)은 어떤 경로에서도 활성이 되지 않는다', () => {
     for (const pathname of ['/', '/scan', '/shelf', '/settings', '/shelves/1']) {
-      expect(['shelf', 'settings']).not.toContain(getActiveNavKey(pathname))
+      expect(getActiveNavKey(pathname)).not.toBe('shelf')
     }
   })
 })

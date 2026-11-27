@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 
-// 이번 단계(공통 레이아웃)에서 쓰는 아이콘만 둔다. 24×24 스트로크 SVG이며 색은 currentColor를 따른다.
+// 화면에서 쓰는 아이콘만 둔다. 24×24 스트로크 SVG이며 색은 currentColor를 따른다.
 // 설정(톱니) 아이콘은 Feather Icons(MIT)의 형태를 사용했다.
 
 interface IconProps {
@@ -156,6 +156,84 @@ export function CheckCircleIcon(props: IconProps) {
     <Svg {...props}>
       <circle cx="12" cy="12" r="9" />
       <path d="m8 12.5 2.8 2.8L16 9.5" />
+    </Svg>
+  )
+}
+
+/** 되돌리기(반시계 화살표) */
+export function RotateCcwIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M3.5 4.5v5h5" />
+      <path d="M4.6 14a8 8 0 1 0 1.9-8.3L3.5 9.5" />
+    </Svg>
+  )
+}
+
+export function LockIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <rect x="5" y="10.5" width="14" height="10" rx="2" />
+      <path d="M8 10.5V7.5a4 4 0 0 1 8 0v3" />
+    </Svg>
+  )
+}
+
+export function AlertTriangleIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M10.3 4.2 2.6 17.5A2 2 0 0 0 4.3 20.5h15.4a2 2 0 0 0 1.7-3L13.7 4.2a2 2 0 0 0-3.4 0z" />
+      <path d="M12 9.5v4M12 17h.01" />
+    </Svg>
+  )
+}
+
+/** 금지(사선이 있는 원) */
+export function BanIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="m5.6 5.6 12.8 12.8" />
+    </Svg>
+  )
+}
+
+/** 변경 적용(순환 화살표와 체크) */
+export function SyncCheckIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M20 11a8 8 0 0 0-14.3-4.9L4 8" />
+      <path d="M4 3.5V8h4.5" />
+      <path d="M4 13a8 8 0 0 0 14.3 4.9L20 16" />
+      <path d="M20 20.5V16h-4.5" />
+      <path d="m9 12 2 2 4-4" />
+    </Svg>
+  )
+}
+
+/** 같음(변동 없음) */
+export function EqualsIcon(props: IconProps) {
+  return (
+    <Svg strokeWidth={2.6} {...props}>
+      <path d="M6 9.5h12M6 14.5h12" />
+    </Svg>
+  )
+}
+
+export function TrendingUpIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="m3 17 6-6 4 4 8-8" />
+      <path d="M15 7h6v6" />
+    </Svg>
+  )
+}
+
+export function TrendingDownIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="m3 7 6 6 4-4 8 8" />
+      <path d="M15 17h6v-6" />
     </Svg>
   )
 }

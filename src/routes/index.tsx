@@ -5,6 +5,7 @@ import NotFoundPage from '@/pages/NotFoundPage'
 import ScanCreatePage from '@/pages/scan/ScanCreatePage'
 import ScanDetailPage from '@/pages/scan/ScanDetailPage'
 import ScanListPage from '@/pages/scan/ScanListPage'
+import SettingsPage from '@/pages/settings/SettingsPage'
 import SplashPage from '@/pages/onboarding/SplashPage'
 import OnboardingPage from '@/pages/onboarding/OnboardingPage'
 import LoginPage from '@/pages/auth/LoginPage'
@@ -27,6 +28,7 @@ export const router = createBrowserRouter([
       { path: 'scan', element: <ScanListPage /> },
       { path: 'scan/new', element: <ScanCreatePage /> },
       { path: 'scan/:sessionId', element: <ScanDetailPage /> },
+      { path: 'settings', element: <SettingsPage /> },
       { path: '*', element: <NotFoundPage /> },
     ],
   },
