@@ -1,6 +1,6 @@
 import type { ErrorResponse, FieldError } from '@/types/scan/api'
 
-/** Backend ErrorCode 중 장서점검 회차, 분석·검토 조회, 회차 확정에서 사용하는 코드 */
+/** Backend ErrorCode 중 장서점검 회차, 분석·검토 조회, 회차 확정, 평가 설정에서 사용하는 코드 */
 export const ERROR_CODE = {
   INVALID_INPUT: 'COMMON_001',
   FORBIDDEN: 'COMMON_005',
@@ -11,6 +11,7 @@ export const ERROR_CODE = {
   SCAN_OBSERVATION_NOT_FOUND: 'SCAN_008',
   SCAN_SESSION_NOT_FINALIZABLE: 'SCAN_009',
   SCAN_REVIEW_INCOMPLETE: 'SCAN_010',
+  EVALUATION_INVALID_WEIGHTS: 'EVAL_001',
   INTERNAL_SERVER_ERROR: 'COMMON_999',
 } as const
 
