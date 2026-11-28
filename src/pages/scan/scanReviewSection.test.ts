@@ -129,12 +129,12 @@ describe('회차 상태별 검토 영역', () => {
     expect(html).not.toContain('확정할 수 있습니다')
   })
 
-  it.each([2, 5])('회차 %i: 서가 배치도 버튼은 준비 중이며 누를 수 없다', async (id) => {
+  it.each([2, 5])('회차 %i: 그 회차의 서가 배치도로 이동하는 링크가 있다', async (id) => {
     await load(id)
     const html = renderPage(id)
 
-    expect(button(html, '서가 배치도 보러가기')).toStrictEqual({ text: '서가 배치도 보러가기 준비 중', disabled: true })
-    expect(html).not.toMatch(/<a [^>]*>[^<]*서가 배치도/)
+    expect(html).toMatch(new RegExp(`<a class="scan-layout-btn" href="/scan/${id}/shelf-map"[^>]*>서가 배치도 보러가기`))
+    expect(button(html, '서가 배치도 보러가기')).toBeUndefined()
   })
 })
 
@@ -236,7 +236,7 @@ describe('확정 진행과 결과', () => {
     expect(text).toContain('자동 분석 결과')
     expect(text).toContain('전체 관측 96 건')
     expect(text).toContain('7 / 7건')
-    expect(button(html, '서가 배치도 보러가기')).toBeDefined()
+    expect(html).toContain('href="/scan/3/shelf-map"')
   })
 
   it('성공 후 다른 조회의 재조회가 실패해도 확정 버튼은 다시 나타나지 않는다', async () => {

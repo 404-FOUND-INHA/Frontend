@@ -7,7 +7,7 @@ import './scanDetail.css'
 import './scanReview.css'
 
 /**
- * 사서 검토 현황과, 검토 중 회차의 서가 배치도 버튼(준비 중)·회차 확정. 검토 조회의 로딩과 오류는 이 영역 안에서만 표시한다.
+ * 사서 검토 현황과, 검토 중 회차의 서가 배치도 이동·회차 확정. 검토 조회의 로딩과 오류는 이 영역 안에서만 표시한다.
  * 마운트하면 조회가 시작되므로, 분석이 끝난 회차에서만 렌더링한다. (showsReview)
  */
 export default function ScanReviewSection({ session }: { session: ScanSessionResponse }) {
@@ -91,7 +91,7 @@ export default function ScanReviewSection({ session }: { session: ScanSessionRes
       {/* 확정한 회차의 배치도 버튼은 결과 카드 아래에 둔다. (ScanDetailPage) */}
       {session.status === 'REVIEW' && (
         <>
-          <ScanLayoutButton />
+          <ScanLayoutButton sessionId={session.id} />
           <ScanFinalizeActions session={session} review={view} />
         </>
       )}

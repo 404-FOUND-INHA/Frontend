@@ -5,6 +5,8 @@ import NotFoundPage from '@/pages/NotFoundPage'
 import ScanCreatePage from '@/pages/scan/ScanCreatePage'
 import ScanDetailPage from '@/pages/scan/ScanDetailPage'
 import ScanListPage from '@/pages/scan/ScanListPage'
+import SessionShelfMapPage from '@/pages/shelf/SessionShelfMapPage'
+import ShelfMapPage from '@/pages/shelf/ShelfMapPage'
 import SplashPage from '@/pages/onboarding/SplashPage'
 import OnboardingPage from '@/pages/onboarding/OnboardingPage'
 import LoginPage from '@/pages/auth/LoginPage'
@@ -27,6 +29,8 @@ export const router = createBrowserRouter([
       { path: 'scan', element: <ScanListPage /> },
       { path: 'scan/new', element: <ScanCreatePage /> },
       { path: 'scan/:sessionId', element: <ScanDetailPage /> },
+      { path: 'scan/:sessionId/shelf-map', element: <SessionShelfMapPage /> },
+      { path: 'shelf', element: <ShelfMapPage /> },
       { path: '*', element: <NotFoundPage /> },
     ],
   },

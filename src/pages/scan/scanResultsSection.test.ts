@@ -109,7 +109,7 @@ describe('회차 상태별 결과 영역', () => {
     expect(positions).toEqual([...positions].sort((a, b) => a - b))
     expect(positions[0]).toBeGreaterThan(0)
     expect(html.match(/서가 배치도 보러가기/g)).toHaveLength(1)
-    expect(buttonsOf(html).find((b) => b.text.startsWith('서가 배치도'))?.disabled).toBe(true)
+    expect(html).toContain('href="/scan/5/shelf-map"')
   })
 })
 

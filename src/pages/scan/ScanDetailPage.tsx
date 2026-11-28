@@ -87,7 +87,7 @@ export default function ScanDetailPage() {
             {showsResults(query.data.status) && (
               <>
                 <ScanResultsSection key={`results-${query.data.id}`} sessionId={query.data.id} />
-                <ScanLayoutButton />
+                <ScanLayoutButton sessionId={query.data.id} />
               </>
             )}
           </>
