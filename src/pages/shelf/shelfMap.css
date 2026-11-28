@@ -78,8 +78,9 @@
 .shelf-map-floors button[aria-pressed='true'],
 .shelf-map-unplaced button[aria-pressed='true'] { border-color: var(--app-primary); background: var(--app-tab-active-bg); color: var(--app-primary); }
 
-.shelf-map-legend { display: flex; flex-wrap: wrap; gap: 4px 9px; margin: 0; padding: 10px 16px; border-bottom: 1px solid var(--app-border); list-style: none; font-size: 11px; font-weight: 500; color: #334155; }
-.shelf-map-legend li { display: inline-flex; align-items: center; gap: 4px; }
+/* 양 끝과 항목 사이의 빈 공간이 같도록 좌우 padding과 column-gap을 두지 않는다. */
+.shelf-map-legend { display: flex; flex-wrap: wrap; justify-content: space-evenly; row-gap: 4px; margin: 0; padding: 10px 0; border-bottom: 1px solid var(--app-border); list-style: none; font-size: 11px; font-weight: 500; color: #334155; }
+.shelf-map-legend li { flex: none; display: flex; align-items: center; gap: 4px; white-space: nowrap; }
 .shelf-swatch { flex: none; display: inline-block; width: 11px; height: 11px; border-radius: 3px; }
 .shelf-swatch--normal { background: #22a565; }
 .shelf-swatch--misplaced { background: #f4c430; }
