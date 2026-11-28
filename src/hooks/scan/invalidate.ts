@@ -42,7 +42,7 @@ const reviewsTarget = (sessionId: number): Target => ({ queryKey: scanKeys.sessi
 
 /** 회차 확정으로 응답이 달라지는 조회 */
 const finalizeTargets = (sessionId: number): Target[] => [
-  { queryKey: scanKeys.sessionLists() }, // 상태, 확정일
+  { queryKey: scanKeys.sessionLists() }, // 상태, 확정일 (확정한 회차 전체 조회 포함)
   sessionTarget(sessionId),
   { queryKey: scanKeys.rooms() }, // hasOpenSession
   { queryKey: scanKeys.analysis(sessionId), exact: true }, // session.status
@@ -53,6 +53,7 @@ const finalizeTargets = (sessionId: number): Target[] => [
   { queryKey: scanKeys.sessionMissingCandidates(sessionId) }, // 확정과 함께 산출된다
   // 폐기 검토 후보의 서가는 도서의 현재 서가라 다른 회차의 목록도 달라질 수 있다.
   { queryKey: scanKeys.allDisposalCandidates() },
+  { queryKey: scanKeys.allShelves() }, // 도서의 현재 서가가 바뀌어 서가별 도서 수가 달라진다
 ]
 
 const hasNoData = (query: Query) => query.state.data === undefined

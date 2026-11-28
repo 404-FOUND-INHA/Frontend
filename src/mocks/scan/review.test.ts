@@ -194,6 +194,10 @@ function customData(observations: MockObservation[], reviews: MockReview[] = [])
       zone: id === 3 ? 'Y' : 'X',
       floorNo: 1,
       widthCm: 90,
+      mapX: null,
+      mapY: null,
+      depthCm: null,
+      rotationDegree: null,
       displayOrder: 4 - id, // 표시 순서는 서가 ID의 역순
       active: true,
     })),

@@ -73,8 +73,8 @@ describe('폐기 검토 후보 목록', () => {
         floorNo: 3,
         shelfNo: null,
         levelNo: null,
-        mapX: null,
-        mapY: null,
+        mapX: 60,
+        mapY: 60,
         mapZ: null,
       },
     })

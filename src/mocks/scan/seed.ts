@@ -3,6 +3,7 @@ import { buildSeedAnalysis } from './seedAnalysis'
 import { buildSeedEvaluations } from './seedEvaluations'
 import { buildSeedMissingCandidates } from './seedMissingCandidates'
 import { SEED_LIBRARIAN, buildSeedReviews } from './seedReview'
+import { shelfPositionOf } from './seedShelfPositions'
 import type { MockBook, MockData, MockScanShelfStatus, MockSession, MockSessionShelf, MockShelf } from './types'
 
 // 결정적(deterministic) 시드 데이터. 호출할 때마다 새 객체를 만들어 테스트와 화면 확인을 반복 가능하게 한다.
@@ -72,6 +73,7 @@ function buildShelves(): MockShelf[] {
         widthCm: SHELF_CODES_WITHOUT_WIDTH.has(shelfCode) ? null : SHELF_WIDTH_CM,
         displayOrder: n,
         active: n <= spec.active,
+        ...shelfPositionOf(shelfCode),
       })
     }
   }

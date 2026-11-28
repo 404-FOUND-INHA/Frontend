@@ -34,8 +34,8 @@ function shelfOf(data: MockData, shelfId: number): MockShelf {
   return shelf
 }
 
-/** Backend findShelves 순서: displayOrder 오름차순(null은 뒤), 같으면 서가 ID 오름차순 */
-function compareShelves(a: MockShelf, b: MockShelf): number {
+/** Backend의 서가 표시 순서(findShelves, ShelfService): displayOrder 오름차순(null은 뒤), 같으면 서가 ID 오름차순 */
+export function compareShelves(a: MockShelf, b: MockShelf): number {
   if (a.displayOrder !== b.displayOrder) {
     if (a.displayOrder === null) return 1
     if (b.displayOrder === null) return -1

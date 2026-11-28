@@ -1,6 +1,10 @@
 import { getScanStore } from '@/mocks/scan/store'
 import type { PageResponse } from '@/types/scan/api'
-import type { DisposalCandidateListParams, EvaluationListResponse } from '@/types/scan/evaluation'
+import type {
+  DisposalCandidateListParams,
+  EvaluationListResponse,
+  ShelfCandidatesResponse,
+} from '@/types/scan/evaluation'
 import type { MissingCandidateListParams, MissingCandidateResponse } from '@/types/scan/missingCandidate'
 import { simulateLatency } from './scanSessions'
 
@@ -23,4 +27,10 @@ export async function getDisposalCandidates(
 ): Promise<EvaluationListResponse> {
   await simulateLatency()
   return getScanStore().getDisposalCandidates(sessionId, params)
+}
+
+/** GET /api/scan-sessions/{sessionId}/disposal-candidates/by-shelf (화면에서 쓰지 않는 shelfId 파라미터는 두지 않았다) */
+export async function getDisposalCandidatesByShelf(sessionId: number): Promise<ShelfCandidatesResponse> {
+  await simulateLatency()
+  return getScanStore().getDisposalCandidatesByShelf(sessionId)
 }

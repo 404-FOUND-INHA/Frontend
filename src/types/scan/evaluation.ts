@@ -1,4 +1,4 @@
-// 폐기 검토 후보 조회 API(GET /api/scan-sessions/{sessionId}/disposal-candidates)의 DTO 타입.
+// 폐기 검토 후보 조회 API(GET /api/scan-sessions/{sessionId}/disposal-candidates, .../by-shelf)의 DTO 타입.
 // 필드명, 타입, nullable 여부는 Backend 코드(origin/main)의 EvaluationListResponse, EvaluationItem, ShelfInfo를 따른다.
 // BigDecimal(점수, 지도 좌표)은 JSON 숫자다.
 import type { PageResponse } from './api'
@@ -50,6 +50,32 @@ export interface EvaluationSummary {
 export interface EvaluationListResponse {
   summary: EvaluationSummary
   page: PageResponse<EvaluationItem>
+}
+
+export interface ShelfCandidateBook {
+  bookId: number
+  title: string
+  callNumber: string
+  finalScore: number | null
+}
+
+/** 서가 하나의 후보. maxScore는 가장 높은 종합 점수이고 books는 점수 내림차순, 같으면 도서 ID 순이다. */
+export interface ShelfCandidateGroup {
+  /** 현재 서가가 지정되지 않은 도서의 묶음은 null */
+  shelf: ShelfInfo | null
+  candidateCount: number
+  maxScore: number | null
+  books: ShelfCandidateBook[]
+}
+
+/**
+ * GET /api/scan-sessions/{sessionId}/disposal-candidates/by-shelf (Backend ShelfCandidatesResponse). 페이지가 없다.
+ * 조회 시점의 현재 서가로 묶으며 후보가 없는 서가는 나오지 않는다. 후보 수 내림차순, 같으면 서가 코드 순이고
+ * 서가 미지정 묶음은 마지막이다. 평가 현황(summary)은 담지 않는다.
+ */
+export interface ShelfCandidatesResponse {
+  totalCandidates: number
+  shelves: ShelfCandidateGroup[]
 }
 
 /** 쿼리 파라미터. page는 0부터이고 size는 1~100으로 보정된다. */

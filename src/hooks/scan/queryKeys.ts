@@ -1,6 +1,7 @@
 import type { ScanSessionStatus } from '@/types/scan/api'
 import type { MissingCandidateListParams } from '@/types/scan/missingCandidate'
 import type { ReviewListParams } from '@/types/scan/review'
+import type { ShelfListParams } from '@/types/scan/shelf'
 
 export const SCAN_REVIEWS_PAGE_SIZE = 20
 
@@ -22,6 +23,11 @@ export function normalizeMissingCandidateParams({
   size = SCAN_CANDIDATES_PAGE_SIZE,
 }: Omit<MissingCandidateListParams, 'page'> = {}) {
   return { status, size }
+}
+
+/** 서가 조회 조건. 공백 자료실은 "전체"이고 앞뒤 공백은 요청과 같게 지운다. 생략하면 사용 중 서가만이다. */
+export function normalizeShelfParams({ zone, includeInactive = false }: ShelfListParams = {}) {
+  return { zone: zone?.trim() || undefined, includeInactive }
 }
 
 /** 분석 결과, 검토, 후보 조회는 모든 ID가 양의 안전한 정수일 때만 요청한다. 라우트나 선택 값이 없으면(NaN 등) 요청하지 않는다. */
@@ -54,6 +60,16 @@ export const scanKeys = {
   allDisposalCandidates: () => ['scan', 'disposalCandidates'] as const,
   disposalCandidates: (sessionId: number, size: number = SCAN_CANDIDATES_PAGE_SIZE) =>
     ['scan', 'disposalCandidates', sessionId, { size }] as const,
+  /** 한 회차의 소재불명 후보 전체(모든 페이지). 회차 접두사에 포함된다. */
+  allMissingCandidates: (sessionId: number) => ['scan', 'missingCandidates', sessionId, { all: true }] as const,
+  /** 한 회차의 서가별 폐기 검토 후보. 폐기 검토 후보 접두사에 포함된다. */
+  disposalCandidatesByShelf: (sessionId: number) =>
+    ['scan', 'disposalCandidates', sessionId, { view: 'byShelf' }] as const,
+  /** 확정한 회차 전체(모든 페이지). 회차 목록 접두사에 포함된다. */
+  completedSessions: () => ['scan', 'sessions', 'list', 'completed'] as const,
+  /** 모든 조건의 서가 조회를 가리키는 접두사 (무효화용) */
+  allShelves: () => ['scan', 'shelves'] as const,
+  shelves: (params?: ShelfListParams) => ['scan', 'shelves', normalizeShelfParams(params)] as const,
   /** 회차 확정 mutation */
   finalize: (sessionId: number) => ['scan', 'finalize', sessionId] as const,
 }

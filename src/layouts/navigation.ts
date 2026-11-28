@@ -14,7 +14,7 @@ export interface NavItem {
 export const NAV_ITEMS: readonly NavItem[] = [
   { key: 'home', label: '홈', to: '/', end: true },
   { key: 'scan', label: '점검', to: '/scan' }, // /scan, /scan/new, /scan/:sessionId 모두에서 활성
-  { key: 'shelf', label: '서가' },
+  { key: 'shelf', label: '서가', to: '/shelf' },
   { key: 'settings', label: '설정' },
 ]
 

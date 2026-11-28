@@ -1,13 +1,14 @@
+import { Link } from 'react-router-dom'
 import { ChevronRightIcon } from '@/components/common/icons'
+import { FROM_DETAIL_STATE, scanPaths } from './scanPaths'
 import './scanReview.css'
 
-/** 서가 배치도 버튼. 화면이 아직 없어 이동하지 않는다. */
-export default function ScanLayoutButton() {
+/** 이 회차의 서가 배치도로 이동한다. */
+export default function ScanLayoutButton({ sessionId }: { sessionId: number }) {
   return (
-    <button type="button" className="scan-layout-btn" disabled>
+    <Link to={scanPaths.shelfMap(sessionId)} state={FROM_DETAIL_STATE} className="scan-layout-btn">
       서가 배치도 보러가기
-      <span className="scan-layout-soon">준비 중</span>
       <ChevronRightIcon size={18} />
-    </button>
+    </Link>
   )
 }
